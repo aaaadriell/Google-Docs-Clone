@@ -10,7 +10,6 @@ It functions in a similar manner to Google Docs:
     • If viewing of an old document is selected, the program will open up the old document, along with the cached memory of whatever information was written and saved previously
     • Real-time collaboration feature is present as well - if 2 people are on the same document at a single time, they are able to view each other's activity
 
-
 # Running Backend
 1. Create venv if not created using the command 'python -m venv .venv'
 2. Activate venv using the command '.venv\Scripts\activate'
