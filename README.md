@@ -9,5 +9,5 @@ This repository contains source codes for us to run a clone of the online collab
 
 
 # Running Frontend
-1. Npm run dev
+1. npm run dev
 
