@@ -8,8 +8,8 @@
 
 ## Phase 0: Setup (2–3 days)
 
-- [ ] Monorepo: `/frontend` (Vite + React + TS), `/backend` (FastAPI, `uv` or `poetry`)
-- [ ] `docker-compose.yml` with Postgres
+- [✅] Monorepo: `/frontend` (Vite + React + TS), `/backend` (FastAPI, `uv` or `poetry`)
+- [ ] `docker-compose.yml` with Neon(Postgres)
 - [ ] Alembic for migrations, SQLAlchemy async engine with `asyncpg`
 - [ ] CI running lint + tests on both projects
 
