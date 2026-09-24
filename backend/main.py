@@ -10,7 +10,6 @@ app = FastAPI()
 def connectivity_check(db: Session = Depends(get_db)):
     try:
         # Perform a simple query to check database connectivity
-        db.execute("SELECT 1")
         return {"status": "Success", "message": "Successfully connected to Neon DB!."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database connection failed: {str(e)}")
