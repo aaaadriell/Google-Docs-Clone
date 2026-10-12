@@ -1,9 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.database import engine, get_db
-from app.models import User, Base
+from app.database import get_db
 
-Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 @app.get("/health-check")
