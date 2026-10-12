@@ -15,6 +15,10 @@ It functions in a similar manner to Google Docs:
 2. Activate venv using the command '.venv\Scripts\activate'
 3. Run the server using 'uvicorn app.main:app'; optionally include ' --workers <num_workers>' to run more workers in parallel instead of just utilizing one CPU core
 
+# Running NeonDB Migrations
+1. Make changes to models.py
+2. alembic revision --autogenerate -m "<Description_of_changes_here>"
+3. alembic upgrade head
 
 # Running Frontend
 1. npm run dev
@@ -22,4 +26,7 @@ It functions in a similar manner to Google Docs:
 
 # Dockerized BE + FE
 1. docker compose up
+
+
+
 
