@@ -10,24 +10,26 @@ services:
     environment:
       - PORT=8000
       - PYTHONUNBUFFERED=1
+    env_file:
+      - ./backend/.env
     volumes:
       - ./backend:/app
     # For FastAPI/Uvicorn or Flask development with live reload:
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: Google_Docs_Clone_Frontend
-    restart: always
+    restart: unless-stopped
     ports:
       - "5173:5173"
     environment:
       - WATCHPACK_POLLING=true
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - ./frontend:/src
+      - /src/node_modules
     # For Vite dev server with host exposure:
     command: npm run dev -- --host 0.0.0.0 --port 5173
     depends_on:
