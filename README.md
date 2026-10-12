@@ -19,3 +19,7 @@ It functions in a similar manner to Google Docs:
 # Running Frontend
 1. npm run dev
 
+
+# Dockerized BE + FE
+1. docker compose up
+
