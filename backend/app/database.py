@@ -1,7 +1,9 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import Session, sessionmaker, declarative_base
 import os
 from dotenv import load_dotenv
+from fastapi import Depends
+from typing import Annotated
 
 load_dotenv()  # Load environment variables from .env file
 
@@ -17,3 +19,5 @@ def get_db():
         yield db
     finally:
         db.close()
+
+db_session = Annotated[Session, Depends(get_db)]

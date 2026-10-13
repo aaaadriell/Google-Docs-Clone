@@ -26,7 +26,9 @@ It functions in a similar manner to Google Docs:
 
 
 # Dockerized BE + FE
-1. docker compose up
+1. If there were new packages installed in backend, delete app/requirements.txt
+3. In .venv, CD into backend/app folder, and 'pip freeze > requirements.txt'
+2. docker compose up
 
 
 
