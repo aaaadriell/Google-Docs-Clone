@@ -16,9 +16,10 @@ It functions in a similar manner to Google Docs:
 3. Run the server using 'uvicorn app.main:app'; optionally include ' --workers <num_workers>' to run more workers in parallel instead of just utilizing one CPU core
 
 # Running NeonDB Migrations
-1. Make changes to models.py
-2. alembic revision --autogenerate -m "<Description_of_changes_here>"
-3. alembic upgrade head
+1. Enter .venv, CD into /backend 
+2. Make changes to models.py
+3. alembic revision --autogenerate -m "<Description_of_changes_here>"
+4. alembic upgrade head
 
 # Running Frontend
 1. npm run dev

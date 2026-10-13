@@ -6,10 +6,11 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
-    password = Column(String)
+    hashed_password = Column(String)
+    created_at = Column(String)
 
-class Documents(Base):
-    __tablename__ = "documents"
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, index=True)
-    content = Column(String)
+# class Documents(Base):
+#     __tablename__ = "documents"
+#     id = Column(Integer, primary_key=True, index=True)
+#     title = Column(String, index=True)
+#     content = Column(String)
