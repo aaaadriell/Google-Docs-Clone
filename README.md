@@ -10,18 +10,18 @@ It functions in a similar manner to Google Docs:
 - If viewing of an old document is selected, the program will open up the old document, along with the cached memory of whatever information was written and saved previously
 - Real-time collaboration feature is present as well - if 2 people are on the same document at a single time, they are able to view each other's activity
 
-# Running Backend
+# Running Backend (Using FastAPI Python)
 1. Create venv if not created using the command 'python -m venv .venv'
 2. Activate venv using the command '.venv\Scripts\activate'
 3. Run the server using 'uvicorn app.main:app'; optionally include ' --workers <num_workers>' to run more workers in parallel instead of just utilizing one CPU core
 
-# Running NeonDB Migrations
+# Running NeonDB Migrations (Using Alembic)
 1. Enter .venv, CD into /backend 
 2. Make changes to models.py
 3. alembic revision --autogenerate -m "<Description_of_changes_here>"
 4. alembic upgrade head
 
-# Running Frontend
+# Running Frontend (Using Vite + React in TypeScript)
 1. npm run dev
 
 
