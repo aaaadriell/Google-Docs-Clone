@@ -8,4 +8,11 @@ export default defineConfig({
     react(),
     babel({ presets: [reactCompilerPreset()] })
   ],
+  server: {
+    // Docker on Windows doesn't forward file-change events into the container, so poll instead
+    watch: {
+      usePolling: process.env.VITE_USE_POLLING === 'true',
+      interval: 300,
+    },
+  },
 })
