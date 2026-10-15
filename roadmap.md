@@ -20,8 +20,8 @@
 ## Phase 1: Auth — Signup, Login, Sessions (1 week)
 
 **Backend**
-- [ ] `User` table: id, username (unique), email, hashed_password, created_at
-- [ ] `POST /auth/signup` — validate username uniqueness, hash password with `passlib` (bcrypt)
+- [✅] `User` table: id, username (unique), email, hashed_password, created_at
+- [✅] `POST /auth/signup` — validate username uniqueness, hash password with `bcrypt`
 - [ ] `POST /auth/login` — verify password, issue JWT access token (+ refresh token, optional)
 - [ ] `GET /auth/me` — returns current user from token
 - [ ] `get_current_user` dependency used by all protected routes

@@ -46,7 +46,11 @@ def signup(db: db_session, user_data: UserRegister):
         db.refresh(new_user)
         return new_user
 
+    except HTTPException:
+        # Let intentional errors (like the 400 above) through unchanged
+        raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Sign-up failed: {str(e)}")
 
 
