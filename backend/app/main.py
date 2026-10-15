@@ -3,6 +3,7 @@ from app.database import db_session
 from app.schemas import UserRegister, UserResponse
 from app.models import User
 from app.helpers.password_hash import hash_password
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
