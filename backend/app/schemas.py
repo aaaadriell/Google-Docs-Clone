@@ -2,7 +2,10 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime
 
-class UserRegister(BaseModel):
+#######################################################################################################################
+# Sign-up Request / Response Schema
+#######################################################################################################################
+class SignUpUserRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
     password: str = Field(..., min_length=6, max_length=70)
@@ -18,11 +21,26 @@ class UserRegister(BaseModel):
             raise ValueError('Password must contain at least one digit')
         return v
 
-class UserResponse(BaseModel):
+class SignUpUserResponse(BaseModel):
     id: int
     username: str
     email: EmailStr
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+#######################################################################################################################
+# Login User Request / Response Schema
+#######################################################################################################################
+class LoginUserRequest(BaseModel):
+    emailOrUsername : str = Field(..., min_length=3, max_length=50)
+    password: str = Field(..., min_length=6, max_length=70)
+
+class LoginUserResponse(BaseModel):
+    id: int
+    emailOrUsername : str
+    jwtToken: str
 
     class Config:
         from_attributes = True

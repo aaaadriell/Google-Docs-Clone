@@ -22,12 +22,12 @@
 **Backend**
 - [✅] `User` table: id, username (unique), email, hashed_password, created_at
 - [✅] `POST /auth/signup` — validate username uniqueness, hash password with `bcrypt`
-- [ ] `POST /auth/login` — verify password, issue JWT access token (+ refresh token, optional)
+- [ ] `POST /auth/login` — verify password, issue JWT access token (+ refresh token, validation)
 - [ ] `GET /auth/me` — returns current user from token
 - [ ] `get_current_user` dependency used by all protected routes
 
 **Frontend**
-- [ ] Signup page (form, validation, error states)
+- [✅] Signup page (form, validation, error states)
 - [ ] Login page (form, validation, error states)
 - [ ] Store JWT — prefer httpOnly cookie over localStorage
 - [ ] `useAuth` context/hook + protected-route wrapper redirecting to `/login`

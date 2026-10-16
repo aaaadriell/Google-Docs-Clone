@@ -60,7 +60,7 @@ function isSignUpField(value: unknown): value is SignUpField {
 }
 
 
-// Login Function
+// Sign Function
 export default function SignUpPage() {
     // Set consts
     const [email, setEmail] = useState('')
@@ -116,6 +116,8 @@ export default function SignUpPage() {
                     // HTTPException: detail is a plain string
                     if (body.detail === 'Email already taken.') {
                         setError({ email: body.detail })
+                    } else if (body.detail === 'Username already taken.') {
+                        setError({ username: body.detail })
                     } else {
                         setError({ form: body.detail ?? 'Sign up failed.' })
                     }
