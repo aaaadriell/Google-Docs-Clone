@@ -6,6 +6,8 @@ from app.utils.passwordHelpers import check_password, hash_password
 from app.utils.jwtTokenHelpers import create_jwt_token
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.app.utils.refreshTokenHelpers import create_refresh_token
+
 app = FastAPI()
 
 app.add_middleware(
@@ -70,6 +72,8 @@ def login(db: db_session, user_data: LoginUserRequest):
         # Password Verification
         if not check_password(user_data.password, existing_user.hashed_password):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials.")
+        # Refresh Token Generation
+        refresh_token = create_refresh_token(existing_user.id)
 
         # JWT Token Generation
         jwt_token = create_jwt_token(existing_user.id)
