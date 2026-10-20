@@ -4,9 +4,8 @@ from app.schemas import SignUpUserRequest, SignUpUserResponse, LoginUserRequest,
 from app.models import User
 from app.utils.passwordHelpers import check_password, hash_password
 from app.utils.jwtTokenHelpers import create_jwt_token
+from app.utils.refreshTokenHelpers import create_refresh_token
 from fastapi.middleware.cors import CORSMiddleware
-
-from backend.app.utils.refreshTokenHelpers import create_refresh_token
 
 app = FastAPI()
 
@@ -81,7 +80,8 @@ def login(db: db_session, user_data: LoginUserRequest):
         return LoginUserResponse(
             id=existing_user.id,
             emailOrUsername=existing_user.username if existing_user.username == user_data.emailOrUsername else existing_user.email,
-            jwtToken=jwt_token
+            jwtToken=jwt_token,
+            refreshToken=refresh_token
         )
 
     except HTTPException:

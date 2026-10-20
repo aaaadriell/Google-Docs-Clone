@@ -41,6 +41,7 @@ class LoginUserResponse(BaseModel):
     id: int
     emailOrUsername : str
     jwtToken: str
+    refreshToken: str
 
     class Config:
         from_attributes = True

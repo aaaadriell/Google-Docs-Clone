@@ -10,6 +10,7 @@ interface LoginResponse {
     id: number
     emailOrUsername : string
     jwtToken: string
+    refreshToken: string
     }
 
     // Error Validation Function
