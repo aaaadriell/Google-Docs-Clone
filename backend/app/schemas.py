@@ -30,6 +30,8 @@ class SignUpUserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+
 #######################################################################################################################
 # Login User Request / Response Schema
 #######################################################################################################################
@@ -41,7 +43,6 @@ class LoginUserResponse(BaseModel):
     id: int
     emailOrUsername : str
     jwtToken: str
-    refreshToken: str
 
     class Config:
         from_attributes = True

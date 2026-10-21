@@ -22,7 +22,7 @@
 **Backend**
 - [✅] `User` table: id, username (unique), email, hashed_password, created_at
 - [✅] `POST /auth/signup` — validate username uniqueness, hash password with `bcrypt`
-- [ ] `POST /auth/login` — verify password, issue JWT access token (+ Refresh Token-related Operations:
+- [✅] `POST /auth/login` — verify password, issue JWT access token (+ Refresh Token-related Operations:
 1. Generation of Refresh Tokens [✅]
 2. Requesting a new JWT Token, using the refresh token if it has not expired [ ]
 3. Refresh Token Rotation upon logout or expiry [ ]

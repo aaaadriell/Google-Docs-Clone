@@ -13,6 +13,8 @@
 import jwt
 import uuid
 import os
+from sqlalchemy.orm import Session
+from app.models import RefreshToken
 from datetime import datetime, timedelta, timezone
 
 
@@ -21,14 +23,19 @@ SECRET_KEY = os.environ.get("REFRESH_SECRET_KEY")
 ALGORITHM = "HS256"
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
-def create_refresh_token(user_id: int) -> str:
+def create_refresh_token(db: Session, user_id: int) -> str:
     now = datetime.now(timezone.utc)
     expire = now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    jti = str(uuid.uuid4())  # Unique identifier for the token
     payload = {
         "user_id": user_id,
         "iat": now,
         "exp": expire,
-        "jti": str(uuid.uuid4()),  # Unique identifier for the token
+        "jti": jti,  # Unique identifier for the token
         "refresh" : True # Flag for Refresh Token
     }
+
+    new_refresh_token = RefreshToken(jti = jti, user_id = user_id, created_at = now, isActive = True)
+    
+    db.add(new_refresh_token)
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)

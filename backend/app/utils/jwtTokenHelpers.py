@@ -21,7 +21,7 @@ from datetime import datetime, timedelta, timezone
 # Declare Secret Key, Algorithm and Expiration Time
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = 15
 
 def create_jwt_token(user_id: int) -> str:
     now = datetime.now(timezone.utc)

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Response
 from app.database import db_session
 from app.schemas import SignUpUserRequest, SignUpUserResponse, LoginUserRequest, LoginUserResponse
 from app.models import User
@@ -61,7 +61,7 @@ def signup(db: db_session, user_data: SignUpUserRequest):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Sign-up failed: {str(e)}")
 
 @app.post("/login", response_model=LoginUserResponse, status_code=status.HTTP_200_OK)
-def login(db: db_session, user_data: LoginUserRequest):
+def login(db: db_session, user_data: LoginUserRequest, response: Response):
     try:
         # Email / Username Existence Check
         existing_user = db.query(User).filter((User.username == user_data.emailOrUsername) | (User.email == user_data.emailOrUsername)).first()
@@ -72,19 +72,29 @@ def login(db: db_session, user_data: LoginUserRequest):
         if not check_password(user_data.password, existing_user.hashed_password):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials.")
         # Refresh Token Generation
-        refresh_token = create_refresh_token(existing_user.id)
+        refresh_token = create_refresh_token(db, existing_user.id)
 
         # JWT Token Generation
         jwt_token = create_jwt_token(existing_user.id)
+        
+        # Data for the response
+        loginUserResponse = LoginUserResponse(id=existing_user.id,
+                                            emailOrUsername=existing_user.username if existing_user.username == user_data.emailOrUsername else existing_user.email,
+                                            jwtToken=jwt_token)
+        # Set Response Cookie
+        response.set_cookie(key="refresh_token",
+                                     value=refresh_token,
+                                     httponly=True,
+                                     secure=True,
+                                     samesite="strict",
+                                     max_age=7*24*60*60  # 7 days in seconds
+                                    )
+        db.commit()  # Commit the transaction to save the refresh token in the database
 
-        return LoginUserResponse(
-            id=existing_user.id,
-            emailOrUsername=existing_user.username if existing_user.username == user_data.emailOrUsername else existing_user.email,
-            jwtToken=jwt_token,
-            refreshToken=refresh_token
-        )
+        return loginUserResponse
 
     except HTTPException:
         raise
     except Exception as e:
+        db.rollback()  # Rollback the transaction in case of an error
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Login failed: {str(e)}")
