@@ -1,5 +1,7 @@
 // Imports
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
+import { useAuth } from '../auth/AuthContext'
 
 // Declaration of Types
 type LoginField = 'emailOrUsername' | 'password'
@@ -38,9 +40,11 @@ function isLoginField(value: unknown): value is LoginField {
     return value === 'emailOrUsername' || value === 'password'
 }
 
-// Sign Function
+// Login Function
 export default function LoginPage() {
     // Set consts
+    const navigate = useNavigate()
+    const { login } = useAuth()
     const [emailOrUsername, setEmailOrUsername] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState<FormErrors>({})
@@ -58,6 +62,7 @@ export default function LoginPage() {
         try {
             let response = await fetch('http://localhost:8000/login', {
                 method : 'POST',
+                credentials: 'include', // lets the browser store the refresh_token cookie
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -101,7 +106,9 @@ export default function LoginPage() {
             }
 
             const data: LoginResponse = await response.json()
+            login(data.jwtToken, {id: data.id, emailOrUsername: data.emailOrUsername})
             console.log('Login successful:', data)
+            navigate('/home', { replace: true })  // Redirect to home page after successful login
 
         } catch {
             // fetch() itself throws when the server can't be reached (backend down, CORS, no network)

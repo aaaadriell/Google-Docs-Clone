@@ -2,19 +2,22 @@
 import { BrowserRouter, Routes, Route } from 'react-router'
 import LoginPage from './pages/LoginPage.tsx'
 import SignUpPage from './pages/SignUpPage.tsx'
-//import HomePage from './pages/HomePage.tsx'
-
+import HomePage from './pages/HomePage.tsx'
+import { AuthProvider } from './auth/AuthContext.tsx'
 
 import './App.css'
+
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/signup" element={<SignUpPage />} /> 
-        <Route path="/login" element={<LoginPage />} />
-        {/* <Route path= "/home" element={<HomePage />} /> */}
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/signup" element={<SignUpPage />} /> 
+          <Route path="/login" element={<LoginPage />} />
+          <Route path= "/home" element={<HomePage />} /> 
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   )
 }

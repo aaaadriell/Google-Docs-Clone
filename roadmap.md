@@ -24,8 +24,7 @@
 - [✅] `POST /auth/signup` — validate username uniqueness, hash password with `bcrypt`
 - [✅] `POST /auth/login` — verify password, issue JWT access token (+ Refresh Token-related Operations:
 1. Generation of Refresh Tokens [✅]
-2. Requesting a new JWT Token, using the refresh token if it has not expired [ ]
-3. Refresh Token Rotation upon logout or expiry [ ]
+2. Refresh Token Rotation upon logout or expiry [ ]
 )
 - [ ] `GET /auth/me` — returns current user from token
 - [ ] `get_current_user` dependency used by all protected routes
