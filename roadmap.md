@@ -21,8 +21,8 @@
 
 **Backend**
 - [✅] `User` table: id, username (unique), email, hashed_password, created_at
-- [✅] `POST /auth/signup` — validate username uniqueness, hash password with `bcrypt`
-- [✅] `POST /auth/login` — verify password, issue JWT access token (+ Refresh Token-related Operations:
+- [✅] `POST /signup` — validate username uniqueness, hash password with `bcrypt`
+- [✅] `POST /login` — verify password, issue JWT access token (+ Refresh Token-related Operations:
 1. Generation of Refresh Tokens [✅]
 2. Refresh Token Rotation upon logout or expiry [ ]
 )
@@ -32,9 +32,9 @@
 **Frontend**
 - [✅] Signup page (form, validation, error states)
 - [✅] Login page (form, validation, error states)
-- [ ] Store JWT — using memory
-- [ ] Store Refresh Token - using HttpOnly Cookie
-- [ ] `useAuth` context/hook + protected-route wrapper redirecting to `/login`
+- [✅] Store JWT — using memory
+- [✅] Store Refresh Token - using HttpOnly Cookie
+- [✅] `useAuth` context/hook + protected-route wrapper redirecting to `/login`
 
 **Done when:** you can sign up, log in, land on an (empty) home page, and a protected route returns 401 without a valid token.
 
