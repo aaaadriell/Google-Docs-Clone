@@ -29,13 +29,25 @@ def create_refresh_token(db: Session, user_id: int) -> str:
     jti = str(uuid.uuid4())  # Unique identifier for the token
     payload = {
         "user_id": user_id,
+        "jti": jti,  # Unique identifier for the token
         "iat": now,
         "exp": expire,
-        "jti": jti,  # Unique identifier for the token
-        "refresh" : True # Flag for Refresh Token
+        "refresh" : True, # Flag for Refresh Token,
+        "isActive": True
     }
 
-    new_refresh_token = RefreshToken(jti = jti, user_id = user_id, created_at = now, isActive = True)
+    new_refresh_token = RefreshToken(jti = jti, user_id = user_id, created_at = now, expired_at = expire, isActive = True)
     
     db.add(new_refresh_token)
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def decode_refresh_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("refresh") is not True:
+            raise jwt.InvalidTokenError("Not a refresh token")
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise jwt.ExpiredSignatureError("Refresh token has expired")
+    except jwt.InvalidTokenError:
+        raise jwt.InvalidTokenError("Invalid refresh token")

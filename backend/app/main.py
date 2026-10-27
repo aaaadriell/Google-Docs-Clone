@@ -4,7 +4,7 @@ from app.schemas import SignUpUserRequest, SignUpUserResponse, LoginUserRequest,
 from app.models import User
 from app.utils.passwordHelpers import check_password, hash_password
 from app.utils.jwtTokenHelpers import create_jwt_token
-from app.utils.refreshTokenHelpers import create_refresh_token
+from app.utils.refreshTokenHelpers import create_refresh_token, decode_refresh_token
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -83,12 +83,12 @@ def login(db: db_session, user_data: LoginUserRequest, response: Response):
                                             jwtToken=jwt_token)
         # Set Response Cookie
         response.set_cookie(key="refresh_token",
-                                     value=refresh_token,
-                                     httponly=True,
-                                     secure=True,
-                                     samesite="strict",
-                                     max_age=7*24*60*60  # 7 days in seconds
-                                    )
+                            value=refresh_token,
+                            httponly=True,
+                            secure=True,
+                            samesite="strict",
+                            max_age=7*24*60*60  # 7 days in seconds
+                            )
         db.commit()  # Commit the transaction to save the refresh token in the database
 
         return loginUserResponse
@@ -98,3 +98,11 @@ def login(db: db_session, user_data: LoginUserRequest, response: Response):
     except Exception as e:
         db.rollback()  # Rollback the transaction in case of an error
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Login failed: {str(e)}")
+
+def logout(response: Response):
+    refresh_token = response.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No refresh token found in cookies.")
+    refresh_token_payload = decode_refresh_token(refresh_token)
+    refresh_token_payload["isActive"] = False
+    return {"message": "Successfully logged out."}
