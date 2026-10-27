@@ -9,7 +9,7 @@ export default function HomePage() {
     const { jwtToken, user, logout } = useAuth()
 
     const handleLogout = () => {
-        logout()
+        logout() // JWT & Refresh Tokens should be cleared
         navigate('/login', { replace: true })  // Redirect to login page after logout
     }
 
