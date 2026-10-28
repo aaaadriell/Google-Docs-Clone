@@ -19,27 +19,66 @@
 
 ## Phase 1: Auth — Signup, Login, Sessions (1 week)
 
-**Backend**
+**Backend — Users**
 - [✅] `User` table: id, username (unique), email, hashed_password, created_at
 - [✅] `POST /signup` — validate username uniqueness, hash password with `bcrypt`
-- [✅] `POST /login` — verify password, issue JWT access token + Refresh Token-related Operations:
-1. Generation of Refresh Tokens [✅]
-2. Logout [ ]
-   - [ ] `decode_refresh_token` helper (verify signature + exp + refresh flag)
-   - [✅] Add `expires_at` column to refresh_tokens (+ migration)
-   - [ ] `POST /logout`: read cookie → set isActive=False → commit → delete_cookie (same settings as set_cookie) → 204; never fails
-   - [ ] Frontend `logout()`: await POST /logout with credentials: 'include', clear JWT + user in `finally`, then redirect
-   - [ ] Cleanup: delete refresh tokens that are expired, or inactive for > N days (run at login for now)
+- [✅] `POST /login` — verify password, issue JWT access token
 
-3. On any page other than login page, make it protected route, check for tokens + avaliablilty. Re-issue jwt token if it expired (provided that Refresh Token still avail. If Refresh Token unavail, force logout)[ ]
-- [ ] `get_current_user` dependency used by all protected routes
+**Backend — Session model (rules to follow throughout)**
+> - Every login creates a **new** refresh token + DB row (one row = one device/session). Never reuse an existing one.
+> - The JWT payload only carries identity + `jti`; session state (`isActive`) lives **only** in the DB row.
+> - Every `/refresh` **rotates**: old row → `isActive=False`, new token + row issued.
+> - A refresh token whose row is already inactive = **reuse** → deactivate all of that user's rows.
+
+**Backend — Step 1: Token helpers**
+- [✅] `refresh_tokens` table: id, jti (unique), user_id (FK → users, cascade), created_at, expired_at, isActive (+ migration)
+- [✅] `create_refresh_token(db, user_id)` — adds row (no commit), returns token
+- [✅] Remove `"isActive"` claim from the refresh token payload (DB is the source of truth)
+- [✅] Fail fast at startup if `JWT_SECRET_KEY` / `REFRESH_SECRET_KEY` is missing
+- [✅] Custom `InvalidRefreshTokenError` exception
+- [✅] `decode_refresh_token(token)` — `algorithms=[...]`, `options={"require": ["exp","iat","jti","user_id"]}`, checks refresh flag, single `except jwt.InvalidTokenError as e: raise InvalidRefreshTokenError from e`; no DB, no HTTPException
+- [✅] `decode_access_token(token)` — same pattern for access tokens (distinguish expired vs invalid)
+- [ ] `get_refresh_token_record(db, jti)` — look up row by jti
+- [ ] `set_refresh_cookie(response, token)` / `clear_refresh_cookie(response)` — one shared set of settings (key, path, httponly, secure, samesite, max_age from `REFRESH_TOKEN_EXPIRE_DAYS`)
+- [ ] Use `set_refresh_cookie` in `/login` (replace the inline `set_cookie`)
+- [ ] Quick tests: valid / tampered / expired / access-token-as-refresh / missing jti / garbage → all behave correctly
+
+**Backend — Step 2: `POST /logout`**
+- [ ] Route decorator, read cookie via `Cookie()` param (not `response.cookies`)
+- [ ] Decode → find row by jti → `isActive=False` → commit
+- [ ] Always `clear_refresh_cookie`, always return 204 (missing/invalid/already-revoked cookie is not an error)
+- [ ] Postman: logout → cookie gone, row inactive; logout with no cookie → still 204
+
+**Backend — Step 3: `POST /refresh`**
+- [ ] No cookie → 401
+- [ ] Decode fails → 401 + clear cookie
+- [ ] Row not found → 401 + clear cookie
+- [ ] Row inactive → **reuse detected**: deactivate all rows for user → 401 + clear cookie
+- [ ] Valid → old row `isActive=False`, new refresh token + row, new JWT, single commit, set new cookie
+- [ ] Response body: `{ jwt, user }` (frontend needs the user back after a reload)
+- [ ] Postman: refresh twice → cookie changes each time; resend the first cookie → 401 and all user rows inactive
+
+**Backend — Step 4: Protecting routes**
+- [ ] `get_current_user` dependency (`HTTPBearer` → `decode_access_token` → load user) → 401 + `WWW-Authenticate: Bearer` on failure
+- [ ] `CurrentUser = Annotated[User, Depends(get_current_user)]` alias
+- [ ] `GET /me` — returns current user (end-to-end test of the chain)
+
+**Backend — Step 5: Cleanup**
+- [ ] `delete_stale_refresh_tokens(db)` — delete rows where `expired_at < now` OR (`isActive=False` AND older than N days)
+- [ ] Call it at login (move to a scheduled job later)
 
 **Frontend**
 - [✅] Signup page (form, validation, error states)
-- [✅] Login page (form, validation, error states)
-- [✅] Store JWT — using memory
-- [✅] Store Refresh Token - using HttpOnly Cookie
-- [✅] `useAuth` context/hook + protected-route wrapper redirecting to `/login`
+- [✅] Login page (form, validation, error states, `credentials: 'include'`)
+- [✅] Store JWT — in memory (`AuthContext`)
+- [✅] Store Refresh Token — HttpOnly cookie (set by backend)
+- [✅] `useAuth` context/hook
+- [ ] `AuthContext.status`: `"loading" | "authenticated" | "unauthenticated"`
+- [ ] On app start: silent `POST /refresh` (`credentials: 'include'`) → success stores JWT + user, failure → unauthenticated
+- [ ] `ProtectedRoute`: loading → spinner, unauthenticated → `<Navigate to="/login" replace />`, authenticated → page
+- [ ] `logout()`: async — `POST /logout` with `credentials: 'include'`, clear JWT + user in `finally`, then redirect
+- [ ] `apiFetch` wrapper: adds `Authorization: Bearer`, on 401 → refresh once → retry once → else force logout; concurrent 401s share **one** refresh call
+- [ ] HomePage calls `GET /me` through `apiFetch`; remove the on-screen JWT debug line
 
 **Done when:** you can sign up, log in, land on an (empty) home page, and a protected route returns 401 without a valid token.
 

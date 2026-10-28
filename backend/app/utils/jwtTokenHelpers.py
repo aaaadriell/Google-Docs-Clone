@@ -17,6 +17,8 @@ import uuid
 import os
 from datetime import datetime, timedelta, timezone
 
+from backend.app.exceptions import ExpiredJWTTokenError, InvalidJWTTokenError
+
 
 # Declare Secret Key, Algorithm and Expiration Time
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
@@ -34,3 +36,23 @@ def create_jwt_token(user_id: int) -> str:
         "refresh" : False # Flag for non-Refresh Token
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def decode_jwt_token(token: str) -> dict:
+    # Only jwt.decode can raise PyJWT errors, so it's the only thing inside the try
+    try:
+        payload = jwt.decode(token,
+                            SECRET_KEY,
+                            algorithms=[ALGORITHM],
+                            options={"require": ["user_id", "jti", "iat", "exp", "refresh"]})
+    except jwt.InvalidTokenError as e:
+        # Parent of ExpiredSignatureError, InvalidSignatureError, DecodeError, MissingRequiredClaimError, ...
+        raise InvalidJWTTokenError("Invalid JWT Access token.") from e
+    
+    except jwt.ExpiredSignatureError as e:
+        # Token has expired
+        raise ExpiredJWTTokenError("JWT Access token has expired.") from e
+
+    if payload.get("refresh") is True:
+        raise InvalidJWTTokenError("Not a JWT Access token.")
+
+    return payload

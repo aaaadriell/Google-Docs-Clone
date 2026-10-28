@@ -17,11 +17,17 @@ from sqlalchemy.orm import Session
 from app.models import RefreshToken
 from datetime import datetime, timedelta, timezone
 
+from app.exceptions import InvalidJWTTokenError, ExpiredJWTTokenError
+
 
 # Declare Secret Key, Algorithm and Expiration Time
 SECRET_KEY = os.environ.get("REFRESH_SECRET_KEY")
 ALGORITHM = "HS256"
 REFRESH_TOKEN_EXPIRE_DAYS = 7
+
+# Fail fast at startup instead of on the first login / refresh
+if not SECRET_KEY:
+    raise RuntimeError("REFRESH_SECRET_KEY environment variable is not set.")
 
 def create_refresh_token(db: Session, user_id: int) -> str:
     now = datetime.now(timezone.utc)
@@ -33,21 +39,25 @@ def create_refresh_token(db: Session, user_id: int) -> str:
         "iat": now,
         "exp": expire,
         "refresh" : True, # Flag for Refresh Token,
-        "isActive": True
     }
 
-    new_refresh_token = RefreshToken(jti = jti, user_id = user_id, created_at = now, expired_at = expire, isActive = True)
+    new_refresh_token = RefreshToken(jti = jti, user_id = user_id, created_at = now, expired_at = expire)
     
     db.add(new_refresh_token)
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 def decode_refresh_token(token: str) -> dict:
+    # Only jwt.decode can raise PyJWT errors, so it's the only thing inside the try
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("refresh") is not True:
-            raise jwt.InvalidTokenError("Not a refresh token")
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise jwt.ExpiredSignatureError("Refresh token has expired")
-    except jwt.InvalidTokenError:
-        raise jwt.InvalidTokenError("Invalid refresh token")
+        payload = jwt.decode(token,
+                            SECRET_KEY,
+                            algorithms=[ALGORITHM],
+                            options={"require": ["user_id", "jti", "iat", "exp", "refresh"]})
+    except jwt.InvalidTokenError as e:
+        # Parent of ExpiredSignatureError, InvalidSignatureError, DecodeError, MissingRequiredClaimError, ...
+        raise InvalidJWTTokenError("Invalid refresh token.") from e
+
+    if payload.get("refresh") is not True:
+        raise InvalidJWTTokenError("Not a refresh token.")
+    
+    return payload
