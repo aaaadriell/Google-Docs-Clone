@@ -17,7 +17,7 @@ import uuid
 import os
 from datetime import datetime, timedelta, timezone
 
-from backend.app.exceptions import ExpiredJWTTokenError, InvalidJWTTokenError
+from app.exceptions import ExpiredJWTTokenError, InvalidJWTTokenError
 
 
 # Declare Secret Key, Algorithm and Expiration Time
@@ -54,5 +54,5 @@ def decode_jwt_token(token: str) -> dict:
 
     if payload.get("refresh") is True:
         raise InvalidJWTTokenError("Not a JWT Access token.")
-
+    
     return payload

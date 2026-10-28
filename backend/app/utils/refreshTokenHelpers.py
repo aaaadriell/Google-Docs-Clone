@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.models import RefreshToken
 from datetime import datetime, timedelta, timezone
 
-from app.exceptions import InvalidJWTTokenError, ExpiredJWTTokenError
+from app.exceptions import InvalidRefreshTokenError
 
 
 # Declare Secret Key, Algorithm and Expiration Time
@@ -55,9 +55,9 @@ def decode_refresh_token(token: str) -> dict:
                             options={"require": ["user_id", "jti", "iat", "exp", "refresh"]})
     except jwt.InvalidTokenError as e:
         # Parent of ExpiredSignatureError, InvalidSignatureError, DecodeError, MissingRequiredClaimError, ...
-        raise InvalidJWTTokenError("Invalid refresh token.") from e
+        raise InvalidRefreshTokenError("Invalid refresh token.") from e
 
     if payload.get("refresh") is not True:
-        raise InvalidJWTTokenError("Not a refresh token.")
+        raise InvalidRefreshTokenError("Not a refresh token.")
     
     return payload
