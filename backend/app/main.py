@@ -82,7 +82,7 @@ def login(db: db_session, user_data: LoginUserRequest, response: Response):
                                             emailOrUsername=existing_user.username if existing_user.username == user_data.emailOrUsername else existing_user.email,
                                             jwtToken=jwt_token)
         # Set Response Cookie
-        set_refresh_cookie(loginUserResponse, refresh_token)
+        set_refresh_cookie(response, refresh_token)
         
         db.commit()  # Commit the transaction to save the refresh token in the database
 
