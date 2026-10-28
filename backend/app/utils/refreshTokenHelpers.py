@@ -17,7 +17,6 @@ from fastapi import Response
 from sqlalchemy.orm import Session
 from app.models import RefreshToken
 from datetime import datetime, timedelta, timezone
-from app.database import db_session
 from app.exceptions import InvalidRefreshTokenError
 
 
@@ -63,15 +62,22 @@ def decode_refresh_token(token: str) -> dict:
     
     return payload
 
-def set_refresh_cookie(response: Response, refresh_token: str):
+def set_refresh_cookie(response: Response, refresh_token: str) -> None:
     response.set_cookie(key="refresh_token",
                         value=refresh_token,
                         path="/",
                         httponly=True,
                         secure=True,
                         samesite="strict",
-                        max_age=7*24*60*60
+                        max_age=REFRESH_TOKEN_EXPIRE_DAYS*24*60*60
                         )
+
+def clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(key="refresh_token", path="/",
+                            httponly=True,
+                            secure=True,
+                            samesite="strict"
+                            )
     
-def get_refresh_token_from_db(db: db_session, jti: str) -> RefreshToken | None:
+def get_refresh_token_from_db(db: Session, jti: str) -> RefreshToken | None:
     return db.query(RefreshToken).filter(RefreshToken.jti == jti).first()
