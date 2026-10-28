@@ -1,11 +1,15 @@
-from fastapi import FastAPI, HTTPException, status, Response
+from typing_extensions import Annotated
+
+from fastapi import FastAPI, HTTPException, status, Response, Cookie
 from app.database import db_session
 from app.schemas import SignUpUserRequest, SignUpUserResponse, LoginUserRequest, LoginUserResponse
 from app.models import User
 from app.utils.passwordHelpers import check_password, hash_password
 from app.utils.jwtTokenHelpers import create_jwt_token
-from app.utils.refreshTokenHelpers import create_refresh_token, decode_refresh_token, set_refresh_cookie
+from app.utils.refreshTokenHelpers import create_refresh_token, decode_refresh_token, set_refresh_cookie, get_refresh_token_from_db, clear_refresh_cookie
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.exceptions import InvalidRefreshTokenError
 
 app = FastAPI()
 
@@ -94,10 +98,19 @@ def login(db: db_session, user_data: LoginUserRequest, response: Response):
         db.rollback()  # Rollback the transaction in case of an error
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Login failed: {str(e)}")
 
-def logout(response: Response):
-    refresh_token = response.cookies.get("refresh_token")
-    if not refresh_token:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No refresh token found in cookies.")
-    refresh_token_payload = decode_refresh_token(refresh_token)
-    refresh_token_payload["isActive"] = False
-    return {"message": "Successfully logged out."}
+@app.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(db: db_session, response: Response, refresh_token: Annotated[str | None, Cookie()] = None):
+    if refresh_token:
+        try:
+            payload = decode_refresh_token(refresh_token)
+            record = get_refresh_token_from_db(db, payload["jti"])
+            if record is not None and record.isActive:
+                record.isActive = False
+                db.commit()
+        except InvalidRefreshTokenError:
+            pass                    # invalid or expired: nothing to revoke
+        except Exception:
+            db.rollback()           # database problem: still log the user out below
+            # (add logger.exception(...) here once you have logging set up)
+
+    clear_refresh_cookie(response)  # always reached, so the cookie is always cleared

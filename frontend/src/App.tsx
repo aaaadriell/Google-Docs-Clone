@@ -14,7 +14,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/signup" element={<SignUpPage />} /> 
-          <Route path="/" element={<LoginPage />} />
+          <Route path="/login" element={<LoginPage />} />
           <Route path= "/home" element={<HomePage />} /> 
         </Routes>
       </AuthProvider>

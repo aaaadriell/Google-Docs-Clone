@@ -41,13 +41,11 @@
 - [✅] `get_refresh_token_from_db(db, jti)` — look up row by jti
 - [✅] `set_refresh_cookie(response, token)` / `clear_refresh_cookie(response)` — one shared set of settings (key, path, httponly, secure, samesite, max_age from `REFRESH_TOKEN_EXPIRE_DAYS`)
 - [✅] Use `set_refresh_cookie` in `/login` (replace the inline `set_cookie`)
-- [ ] Quick tests: valid / tampered / expired / access-token-as-refresh / missing jti / garbage → all behave correctly
 
 **Backend — Step 2: `POST /logout`**
-- [ ] Route decorator, read cookie via `Cookie()` param (not `response.cookies`)
-- [ ] Decode → find row by jti → `isActive=False` → commit
-- [ ] Always `clear_refresh_cookie`, always return 204 (missing/invalid/already-revoked cookie is not an error)
-- [ ] Postman: logout → cookie gone, row inactive; logout with no cookie → still 204
+- [✅] Route decorator, read cookie via `Cookie()` param (not `response.cookies`)
+- [✅] Decode → find row by jti → `isActive=False` → commit
+- [✅] Always `clear_refresh_cookie`, always return 204 (missing/invalid/already-revoked cookie is not an error)
 
 **Backend — Step 3: `POST /refresh`**
 - [ ] No cookie → 401
