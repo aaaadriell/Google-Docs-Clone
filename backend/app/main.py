@@ -4,7 +4,7 @@ from app.schemas import SignUpUserRequest, SignUpUserResponse, LoginUserRequest,
 from app.models import User
 from app.utils.passwordHelpers import check_password, hash_password
 from app.utils.jwtTokenHelpers import create_jwt_token
-from app.utils.refreshTokenHelpers import create_refresh_token, decode_refresh_token
+from app.utils.refreshTokenHelpers import create_refresh_token, decode_refresh_token, set_refresh_cookie
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -82,13 +82,8 @@ def login(db: db_session, user_data: LoginUserRequest, response: Response):
                                             emailOrUsername=existing_user.username if existing_user.username == user_data.emailOrUsername else existing_user.email,
                                             jwtToken=jwt_token)
         # Set Response Cookie
-        response.set_cookie(key="refresh_token",
-                            value=refresh_token,
-                            httponly=True,
-                            secure=True,
-                            samesite="strict",
-                            max_age=7*24*60*60  # 7 days in seconds
-                            )
+        set_refresh_cookie(loginUserResponse, refresh_token)
+        
         db.commit()  # Commit the transaction to save the refresh token in the database
 
         return loginUserResponse

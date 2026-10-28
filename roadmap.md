@@ -38,7 +38,7 @@
 - [✅] Custom `InvalidRefreshTokenError` exception
 - [✅] `decode_refresh_token(token)` — `algorithms=[...]`, `options={"require": ["exp","iat","jti","user_id"]}`, checks refresh flag, single `except jwt.InvalidTokenError as e: raise InvalidRefreshTokenError from e`; no DB, no HTTPException
 - [✅] `decode_access_token(token)` — same pattern for access tokens (distinguish expired vs invalid)
-- [ ] `get_refresh_token_record(db, jti)` — look up row by jti
+- [✅] `get_refresh_token_from_db(db, jti)` — look up row by jti
 - [ ] `set_refresh_cookie(response, token)` / `clear_refresh_cookie(response)` — one shared set of settings (key, path, httponly, secure, samesite, max_age from `REFRESH_TOKEN_EXPIRE_DAYS`)
 - [ ] Use `set_refresh_cookie` in `/login` (replace the inline `set_cookie`)
 - [ ] Quick tests: valid / tampered / expired / access-token-as-refresh / missing jti / garbage → all behave correctly
