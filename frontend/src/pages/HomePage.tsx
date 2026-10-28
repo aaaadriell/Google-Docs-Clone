@@ -19,8 +19,8 @@ export default function HomePage() {
             if (!response.ok) {
                 throw new Error('Logout failed.')
             }
-        } catch (error) {
-            setError('Error occurred while logging out.')
+        } catch (error: any) {
+            setError(error.message)
         }
         logout() // JWT & Refresh Tokens should be cleared
         navigate('/login', { replace: true })  // Redirect to login page after logout
@@ -35,6 +35,7 @@ export default function HomePage() {
                 <p>Welcome, {user?.emailOrUsername}!</p>
                 <p>Your JWT Token: {jwtToken}</p>
                 <button onClick={handleLogout}>Logout</button>
+                {error && <p style={{ color: 'red' }}>{error}</p>}
             </main>
         </div>
     )
