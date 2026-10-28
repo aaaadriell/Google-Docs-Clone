@@ -27,8 +27,8 @@
 **Backend — Session model (rules to follow throughout)**
 > - Every login creates a **new** refresh token + DB row (one row = one device/session). Never reuse an existing one.
 > - The JWT payload only carries identity + `jti`; session state (`isActive`) lives **only** in the DB row.
-> - Every `/refresh` **rotates**: old row → `isActive=False`, new token + row issued.
-> - A refresh token whose row is already inactive = **reuse** → deactivate all of that user's rows.
+> - The refresh token is **fixed for the life of the session** (no rotation in v1): `/refresh` only issues new access tokens. Sessions last exactly `REFRESH_TOKEN_EXPIRE_DAYS` from login.
+> - A refresh token is only honoured if it is genuine **and** unexpired **and** its row exists **and** `isActive=True` — expiry alone is never enough (logout / revocation must take effect).
 
 **Backend — Step 1: Token helpers**
 - [✅] `refresh_tokens` table: id, jti (unique), user_id (FK → users, cascade), created_at, expired_at, isActive (+ migration)
@@ -47,14 +47,60 @@
 - [✅] Decode → find row by jti → `isActive=False` → commit
 - [✅] Always `clear_refresh_cookie`, always return 204 (missing/invalid/already-revoked cookie is not an error)
 
-**Backend — Step 3: `POST /refresh`**
-- [ ] No cookie → 401
-- [ ] Decode fails → 401 + clear cookie
-- [ ] Row not found → 401 + clear cookie
-- [ ] Row inactive → **reuse detected**: deactivate all rows for user → 401 + clear cookie
-- [ ] Valid → old row `isActive=False`, new refresh token + row, new JWT, single commit, set new cookie
-- [ ] Response body: `{ jwt, user }` (frontend needs the user back after a reload)
-- [ ] Postman: refresh twice → cookie changes each time; resend the first cookie → 401 and all user rows inactive
+**Backend — Step 3: `POST /refresh` (v1 — no rotation)**
+> Purpose: the frontend calls this on **every page load / reload** (the in-memory access token is always gone) and whenever an API call returns **401** (access token expired). The server — not the frontend, which can't read the httpOnly cookie — checks the refresh token. If Valid → issue a **new access token only**; the refresh token and cookie stay unchanged. Invalid for any reason → 401 + clear cookie, and the frontend sends the user to `/login`. An invalid refresh token is **never** exchanged for anything.
+
+*3a. Prerequisites*
+- [ ] Response schema `UserPublic` in `schemas.py`: `id`, `username`, `email` (reuse it in `/login` and `/me` too)
+- [ ] Response schema `RefreshResponse`: `jwtToken: str` + `user: UserPublic` — the frontend loses both the token and the user on reload, so it needs both back
+- [ ] Helper `unauthorized_and_clear_cookie() -> JSONResponse` in `refreshTokenHelpers.py`: builds a 401 `JSONResponse` with one fixed, vague detail (`"Invalid or expired session."`), calls `clear_refresh_cookie` on it, returns it
+  - Why: `raise HTTPException` **discards** the injected `response`, so the cookie deletion would be lost — failure paths must **return** this response instead of raising
+  - Why one vague message: don't reveal to a caller *which* check failed
+
+*3b. Endpoint signature*
+- [ ] `@app.post("/refresh", response_model=RefreshResponse)`
+- [ ] Params: `db: db_session`, `refresh_token: Annotated[str | None, Cookie()] = None`
+  - No `response: Response` needed — the success path doesn't touch the cookie in v1
+
+*3c. Checks — in this order, stop at the first failure*
+- [ ] **No cookie** (`refresh_token is None`) → return a plain 401 (nothing to clear)
+  - Happens when: never logged in, already logged out, or the browser dropped the expired cookie
+- [ ] **Decode fails** (`decode_refresh_token` raises `InvalidRefreshTokenError`) → `return unauthorized_and_clear_cookie()`
+  - Happens when: **expired** (PyJWT checks `exp` for you — this is the "expiry date has passed" case), tampered, garbage, or an access token was sent
+  - No need to set `isActive=False` here — an expired token is already unusable; cleanup (Step 5) deletes its row later
+- [ ] **Row not found** (`get_refresh_token_from_db(db, payload["jti"])` returns `None`) → `return unauthorized_and_clear_cookie()`
+  - Happens when: the token is genuine but its row was deleted (cleanup / manual)
+- [ ] **Row inactive** (`record.isActive is False`) → `return unauthorized_and_clear_cookie()`
+  - Happens when: this session was logged out (possibly from another copy of the cookie), or revoked
+  - **This check is what makes logout real** — without it, a copied cookie keeps minting access tokens until it expires
+- [ ] **User missing** (`db.get(User, payload["user_id"])` is `None`) → `return unauthorized_and_clear_cookie()`
+  - Defensive: user deleted mid-session — don't crash with a 500
+
+*3d. Success path*
+- [ ] `create_jwt_token(user.id)` → new access token
+- [ ] Return `RefreshResponse(jwtToken=..., user=UserPublic(...))`
+- [ ] No DB writes, no commit, no cookie changes
+- [ ] Wrap the DB lookups in `try/except Exception` → log + 500 (unexpected errors only; the auth failures above are returns, not exceptions)
+
+*3e. Testing (Postman + Neon)*
+- [ ] Log in → `/refresh` → **200**, body has `jwtToken` + `user`, cookie value **unchanged**
+- [ ] Call `/refresh` several times → each returns a new, different `jwtToken`; refresh cookie still unchanged; no new rows in Neon
+- [ ] Decode the new `jwtToken` on jwt.io → `user_id` matches, `exp` ≈ now + 15 min
+- [ ] No cookie → **401**
+- [ ] Cookie = `garbage` → **401**, cookie cleared
+- [ ] Log out → `/refresh` → **401**
+- [ ] **Copied cookie:** log in, copy the cookie value, log out, manually set the copied value back, `/refresh` → **401** (proves the `isActive` check works)
+- [ ] Set the row's `isActive=false` by hand in Neon → `/refresh` → **401**
+- [ ] Access token sent as the refresh cookie → **401**
+- [ ] (Optional) Temporarily set `REFRESH_TOKEN_EXPIRE_DAYS` to a tiny value (e.g. via minutes) → wait → `/refresh` → **401**
+
+**Later — Step 3 v2: Rotation + reuse detection (not needed for MVP)**
+> Upgrade path once everything else works. Same endpoint, same response shape — only the success branch and the inactive-row branch change; the frontend needs no changes.
+- [ ] Add `revoked_at` column (timestamp of deactivation)
+- [ ] Success path: deactivate old row (`isActive=False`, `revoked_at=now`) + `create_refresh_token` + set new cookie, **one** commit → sliding sessions (active users stay logged in)
+- [ ] Inactive row with `revoked_at` older than ~10–30 s → **reuse detected**: deactivate all of that user's rows
+- [ ] Inactive row with `revoked_at` within ~10–30 s → multi-tab race, not theft: plain 401, don't clear cookie, don't mass-revoke
+- [ ] Tradeoff being bought: stolen refresh tokens get detected, and daily users are no longer logged out every `REFRESH_TOKEN_EXPIRE_DAYS`
 
 **Backend — Step 4: Protecting routes**
 - [ ] `get_current_user` dependency (`HTTPBearer` → `decode_access_token` → load user) → 401 + `WWW-Authenticate: Bearer` on failure
