@@ -98,7 +98,7 @@
 - [✅] `CurrentUser = Annotated[User, Depends(get_current_user)]` — same idea as your `db_session` alias, so endpoints just write `current_user: CurrentUser`
 
 *3c. `GET /me` — first protected endpoint*
-- [ ] Schema `UserPublic` in `schemas.py`: `id`, `username`, `email`, `created_at` (`from_attributes = True`) — the safe, public view of a user (never `hashed_password`). Reuse it in `/refresh` and later `/login`
+- [✅] Schema `UserPublic` in `schemas.py`: `id`, `username`, `email`, `created_at` (`from_attributes = True`) — the safe, public view of a user (never `hashed_password`). Reuse it in `/refresh` and later `/login`
 - [ ] `@app.get("/me", response_model=UserPublic)` → `def me(current_user: CurrentUser): return current_user`
   - Why it's one line: the dependency already did all the work — this is the pattern every protected endpoint will follow
   - Why it exists: the home page needs "who am I?", and it's the simplest end-to-end test of the whole chain
