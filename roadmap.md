@@ -47,65 +47,126 @@
 - [✅] Decode → find row by jti → `isActive=False` → commit
 - [✅] Always `clear_refresh_cookie`, always return 204 (missing/invalid/already-revoked cookie is not an error)
 
-**Backend — Step 3: `POST /refresh` (v1 — no rotation)**
-> Purpose: the frontend calls this on **every page load / reload** (the in-memory access token is always gone) and whenever an API call returns **401** (access token expired). The server — not the frontend, which can't read the httpOnly cookie — checks the refresh token. If Valid → issue a **new access token only**; the refresh token and cookie stay unchanged. Invalid for any reason → 401 + clear cookie, and the frontend sends the user to `/login`. An invalid refresh token is **never** exchanged for anything.
+**Backend — How the two tokens fit together (read before Steps 3–4)**
+> Your backend accepts **two different credentials**, and every endpoint uses exactly one of them:
+>
+> | Credential | Sent how | Proves | Used by |
+> |---|---|---|---|
+> | **Access token (JWT)** | `Authorization: Bearer <jwt>` header — the frontend adds it | "I am user X, right now" (for 15 min) | **Every** protected API: `/me`, `/documents`, … |
+> | **Refresh token** | httpOnly cookie — the browser adds it automatically | "I have a live session" (for 7 days) | **Only** `/refresh` and `/logout` |
+>
+> - The "middleware" for protected APIs is a FastAPI **dependency** called `get_current_user`. You add it as a parameter to an endpoint; FastAPI runs it **before** the endpoint body. It reads the Bearer header, verifies the JWT, loads the user, and either hands the endpoint a `User` or stops the request with a **401**. The endpoint itself never touches tokens.
+> - `/refresh` is **not** protected by `get_current_user` — it's called precisely *because* the access token is missing or expired. It authenticates with the **cookie** instead.
+> - `/refresh` is therefore more than `create_jwt_token`: it is "**verify the refresh cookie** (signature, expiry, DB row, `isActive`), and only then call `create_jwt_token`." Skipping the checks would hand a fresh access token to anyone with an old or logged-out cookie.
+>
+> Full flow on the home page:
+> ```
+> page load ─► POST /refresh (cookie) ─► 200 {jwtToken, user} ─► store in AuthContext
+>                                    └─► 401 ─► /login
+> GET /me  (Bearer jwt) ─► get_current_user ─► OK ─► endpoint returns the user
+>                                          └─► 401 "expired" ─► frontend calls /refresh, retries once
+>                                          └─► 401 "invalid" ─► frontend logs out
+> ```
 
-*3a. Prerequisites*
-- [ ] Response schema `UserPublic` in `schemas.py`: `id`, `username`, `email` (reuse it in `/login` and `/me` too)
-- [ ] Response schema `RefreshResponse`: `jwtToken: str` + `user: UserPublic` — the frontend loses both the token and the user on reload, so it needs both back
+**Backend — Step 3: Access-token auth (`get_current_user`) + `GET /me`**
+> Build this first: it's the gate every future API (documents, sharing, …) goes through, and `/me` is the simplest endpoint to prove it works.
+
+*3a. Fix the access-token helpers (`jwtTokenHelpers.py`)*
+- [✅] Add the fail-fast check: `if not SECRET_KEY: raise RuntimeError(...)` at module level (same as `refreshTokenHelpers.py`)
+  - Why: a missing `JWT_SECRET_KEY` should stop the app at startup, not break the first login
+- [✅] In `decode_jwt_token`, put `except jwt.ExpiredSignatureError` **before** `except jwt.InvalidTokenError`
+  - Why: `ExpiredSignatureError` is a *subclass* of `InvalidTokenError`; Python uses the **first** matching `except`, so in the current order the "expired" branch never runs and every expired token is reported as invalid
+  - Why it matters: "expired" means *refresh and retry*; "invalid" means *log out*. The frontend can only make that choice if the backend tells them apart
+
+*3b. The dependency — new file `app/dependencies.py`*
+- [✅] `bearer_scheme = HTTPBearer(auto_error=False)`
+  - What: FastAPI's helper that reads the `Authorization: Bearer <token>` header and gives you the token string (`credentials.credentials`)
+  - Why `auto_error=False`: by default it rejects missing headers itself with its own status/message; turning that off lets **you** return a consistent 401 for every failure
+  - Bonus: it adds an **Authorize** button to `/docs`, so you can paste a token and test protected endpoints there
+- [✅] `def get_current_user(db: db_session, credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)]) -> User`
+  - What: the reusable "gate". It's a normal function, but because endpoints list it via `Depends`, FastAPI runs it before them — that's the "middleware" behaviour
+  - It's a **dependency**, not a helper, so it uses `db: db_session` (FastAPI injects it). Helpers use `db: Session`
+- [ ] Inside `get_current_user`, in order:
+  - [✅] No credentials → `raise HTTPException(401, "Not authenticated", headers={"WWW-Authenticate": "Bearer"})`
+  - [ ] `decode_jwt_token(credentials.credentials)`:
+    - `ExpiredJWTTokenError` → 401 with detail `"Access token expired"` → frontend's signal to call `/refresh`
+    - `InvalidJWTTokenError` → 401 with detail `"Invalid access token"` → frontend's signal to log out
+  - [ ] `user = db.get(User, payload["user_id"])`; `None` → 401 (user deleted after the token was issued)
+  - [ ] Return `user`
+  - Why `raise` is fine here (unlike `/refresh`): there's no cookie to clear, so nothing is lost when FastAPI discards the response
+  - Why `WWW-Authenticate: Bearer`: the HTTP standard says a 401 should tell the client which auth scheme to use
+- [ ] `CurrentUser = Annotated[User, Depends(get_current_user)]` — same idea as your `db_session` alias, so endpoints just write `current_user: CurrentUser`
+
+*3c. `GET /me` — first protected endpoint*
+- [ ] Schema `UserPublic` in `schemas.py`: `id`, `username`, `email`, `created_at` (`from_attributes = True`) — the safe, public view of a user (never `hashed_password`). Reuse it in `/refresh` and later `/login`
+- [ ] `@app.get("/me", response_model=UserPublic)` → `def me(current_user: CurrentUser): return current_user`
+  - Why it's one line: the dependency already did all the work — this is the pattern every protected endpoint will follow
+  - Why it exists: the home page needs "who am I?", and it's the simplest end-to-end test of the whole chain
+
+*3d. Testing*
+- [ ] Postman: log in → copy `jwtToken` → **Authorization** tab → *Bearer Token* → `GET /me` → **200** with your user
+- [ ] No header → **401** "Not authenticated"
+- [ ] Change one character of the token → **401** "Invalid access token"
+- [ ] Send the **refresh** token as the Bearer token → **401** "Invalid access token"
+- [ ] Temporarily set `ACCESS_TOKEN_EXPIRE_MINUTES = 1` → wait → **401** "Access token expired" (then set it back to 15)
+- [ ] `/docs` → **Authorize** → paste token → try `/me` there too
+
+**Backend — Step 4: `POST /refresh` (v1 — no rotation)**
+> Purpose: the frontend calls this on **every page load / reload** (the in-memory access token is always gone) and whenever an API call returns **401 "Access token expired"**. It authenticates with the **refresh cookie**, not the Bearer header. Valid → issue a **new access token only**; the refresh token and cookie stay unchanged. Invalid for any reason → 401 + clear cookie, and the frontend sends the user to `/login`. An invalid refresh token is **never** exchanged for anything.
+
+*4a. Prerequisites*
+- [ ] Schema `RefreshResponse`: `jwtToken: str` + `user: UserPublic`
+  - Why both: after a reload the frontend has lost the token **and** who the user is; returning the user here saves an extra `/me` call
 - [ ] Helper `unauthorized_and_clear_cookie() -> JSONResponse` in `refreshTokenHelpers.py`: builds a 401 `JSONResponse` with one fixed, vague detail (`"Invalid or expired session."`), calls `clear_refresh_cookie` on it, returns it
-  - Why: `raise HTTPException` **discards** the injected `response`, so the cookie deletion would be lost — failure paths must **return** this response instead of raising
+  - Why **return** instead of `raise HTTPException`: raising **discards** the injected response, so the cookie deletion would be lost (the bug you saw in `/logout`)
+  - Why clear the cookie: so the browser stops sending a token that can never work
   - Why one vague message: don't reveal to a caller *which* check failed
 
-*3b. Endpoint signature*
+*4b. Endpoint signature*
 - [ ] `@app.post("/refresh", response_model=RefreshResponse)`
 - [ ] Params: `db: db_session`, `refresh_token: Annotated[str | None, Cookie()] = None`
+  - **No** `CurrentUser` — the access token is missing/expired when this is called; the cookie is the credential
   - No `response: Response` needed — the success path doesn't touch the cookie in v1
 
-*3c. Checks — in this order, stop at the first failure*
+*4c. Checks — in this order, stop at the first failure*
 - [ ] **No cookie** (`refresh_token is None`) → return a plain 401 (nothing to clear)
   - Happens when: never logged in, already logged out, or the browser dropped the expired cookie
 - [ ] **Decode fails** (`decode_refresh_token` raises `InvalidRefreshTokenError`) → `return unauthorized_and_clear_cookie()`
-  - Happens when: **expired** (PyJWT checks `exp` for you — this is the "expiry date has passed" case), tampered, garbage, or an access token was sent
-  - No need to set `isActive=False` here — an expired token is already unusable; cleanup (Step 5) deletes its row later
+  - Happens when: **expired** (PyJWT checks `exp` — this is the "refresh token expiry has passed" case), tampered, garbage, or an access token was sent
+  - No need to set `isActive=False` — an expired token is already unusable; cleanup (Step 5) deletes its row later
 - [ ] **Row not found** (`get_refresh_token_from_db(db, payload["jti"])` returns `None`) → `return unauthorized_and_clear_cookie()`
   - Happens when: the token is genuine but its row was deleted (cleanup / manual)
 - [ ] **Row inactive** (`record.isActive is False`) → `return unauthorized_and_clear_cookie()`
-  - Happens when: this session was logged out (possibly from another copy of the cookie), or revoked
+  - Happens when: this session was logged out (possibly via another copy of the cookie), or revoked
   - **This check is what makes logout real** — without it, a copied cookie keeps minting access tokens until it expires
 - [ ] **User missing** (`db.get(User, payload["user_id"])` is `None`) → `return unauthorized_and_clear_cookie()`
   - Defensive: user deleted mid-session — don't crash with a 500
 
-*3d. Success path*
-- [ ] `create_jwt_token(user.id)` → new access token
-- [ ] Return `RefreshResponse(jwtToken=..., user=UserPublic(...))`
+*4d. Success path*
+- [ ] `create_jwt_token(user.id)` → new access token — **this** is the part that's "just `create_jwt_token`"; everything above is what makes it safe to call
+- [ ] Return `RefreshResponse(jwtToken=..., user=user)`
 - [ ] No DB writes, no commit, no cookie changes
 - [ ] Wrap the DB lookups in `try/except Exception` → log + 500 (unexpected errors only; the auth failures above are returns, not exceptions)
 
-*3e. Testing (Postman + Neon)*
+*4e. Testing (Postman + Neon)*
 - [ ] Log in → `/refresh` → **200**, body has `jwtToken` + `user`, cookie value **unchanged**
-- [ ] Call `/refresh` several times → each returns a new, different `jwtToken`; refresh cookie still unchanged; no new rows in Neon
-- [ ] Decode the new `jwtToken` on jwt.io → `user_id` matches, `exp` ≈ now + 15 min
+- [ ] Use that new `jwtToken` on `GET /me` → **200** (proves Step 3 + Step 4 work together)
+- [ ] Call `/refresh` several times → each returns a different `jwtToken`; cookie unchanged; no new rows in Neon
 - [ ] No cookie → **401**
 - [ ] Cookie = `garbage` → **401**, cookie cleared
 - [ ] Log out → `/refresh` → **401**
-- [ ] **Copied cookie:** log in, copy the cookie value, log out, manually set the copied value back, `/refresh` → **401** (proves the `isActive` check works)
+- [ ] **Copied cookie:** log in, copy the cookie value, log out, set the copied value back, `/refresh` → **401** (proves the `isActive` check)
 - [ ] Set the row's `isActive=false` by hand in Neon → `/refresh` → **401**
 - [ ] Access token sent as the refresh cookie → **401**
-- [ ] (Optional) Temporarily set `REFRESH_TOKEN_EXPIRE_DAYS` to a tiny value (e.g. via minutes) → wait → `/refresh` → **401**
+- [ ] **Full expiry loop:** `ACCESS_TOKEN_EXPIRE_MINUTES = 1` → log in → wait → `/me` → 401 "expired" → `/refresh` → new token → `/me` → **200**
 
-**Later — Step 3 v2: Rotation + reuse detection (not needed for MVP)**
+**Later — Step 4 v2: Rotation + reuse detection (not needed for MVP)**
 > Upgrade path once everything else works. Same endpoint, same response shape — only the success branch and the inactive-row branch change; the frontend needs no changes.
 - [ ] Add `revoked_at` column (timestamp of deactivation)
 - [ ] Success path: deactivate old row (`isActive=False`, `revoked_at=now`) + `create_refresh_token` + set new cookie, **one** commit → sliding sessions (active users stay logged in)
 - [ ] Inactive row with `revoked_at` older than ~10–30 s → **reuse detected**: deactivate all of that user's rows
 - [ ] Inactive row with `revoked_at` within ~10–30 s → multi-tab race, not theft: plain 401, don't clear cookie, don't mass-revoke
 - [ ] Tradeoff being bought: stolen refresh tokens get detected, and daily users are no longer logged out every `REFRESH_TOKEN_EXPIRE_DAYS`
-
-**Backend — Step 4: Protecting routes**
-- [ ] `get_current_user` dependency (`HTTPBearer` → `decode_access_token` → load user) → 401 + `WWW-Authenticate: Bearer` on failure
-- [ ] `CurrentUser = Annotated[User, Depends(get_current_user)]` alias
-- [ ] `GET /me` — returns current user (end-to-end test of the chain)
 
 **Backend — Step 5: Cleanup**
 - [ ] `delete_stale_refresh_tokens(db)` — delete rows where `expired_at < now` OR (`isActive=False` AND older than N days)
@@ -121,7 +182,7 @@
 - [ ] On app start: silent `POST /refresh` (`credentials: 'include'`) → success stores JWT + user, failure → unauthenticated
 - [ ] `ProtectedRoute`: loading → spinner, unauthenticated → `<Navigate to="/login" replace />`, authenticated → page
 - [ ] `logout()`: async — `POST /logout` with `credentials: 'include'`, clear JWT + user in `finally`, then redirect
-- [ ] `apiFetch` wrapper: adds `Authorization: Bearer`, on 401 → refresh once → retry once → else force logout; concurrent 401s share **one** refresh call
+- [ ] `apiFetch` wrapper: adds `Authorization: Bearer`; on 401 `"Access token expired"` → `/refresh` once → retry once; on any other 401 (or a failed refresh) → force logout; concurrent 401s share **one** refresh call
 - [ ] HomePage calls `GET /me` through `apiFetch`; remove the on-screen JWT debug line
 
 **Done when:** you can sign up, log in, land on an (empty) home page, and a protected route returns 401 without a valid token.

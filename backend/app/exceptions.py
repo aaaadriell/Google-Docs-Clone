@@ -12,7 +12,6 @@ class InvalidJWTTokenError(AuthError):
 class ExpiredJWTTokenError(AuthError):
     """Access token was valid but has expired. The client should call /refresh."""
 
-
 ####################################################
 # For Refresh Token Validity Exceptions
 ####################################################

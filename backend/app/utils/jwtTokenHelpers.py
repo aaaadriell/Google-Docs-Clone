@@ -25,6 +25,10 @@ SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
 
+# Fail fast at startup instead of on the first login / refresh
+if not SECRET_KEY:
+    raise RuntimeError("JWT_SECRET_KEY environment variable is not set.")
+
 def create_jwt_token(user_id: int) -> str:
     now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -44,13 +48,12 @@ def decode_jwt_token(token: str) -> dict:
                             SECRET_KEY,
                             algorithms=[ALGORITHM],
                             options={"require": ["user_id", "jti", "iat", "exp", "refresh"]})
+    except jwt.ExpiredSignatureError as e:
+            # Token has expired
+            raise ExpiredJWTTokenError("JWT Access token has expired.") from e
     except jwt.InvalidTokenError as e:
         # Parent of ExpiredSignatureError, InvalidSignatureError, DecodeError, MissingRequiredClaimError, ...
         raise InvalidJWTTokenError("Invalid JWT Access token.") from e
-    
-    except jwt.ExpiredSignatureError as e:
-        # Token has expired
-        raise ExpiredJWTTokenError("JWT Access token has expired.") from e
 
     if payload.get("refresh") is True:
         raise InvalidJWTTokenError("Not a JWT Access token.")
