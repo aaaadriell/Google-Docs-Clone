@@ -86,16 +86,16 @@
 - [✅] `def get_current_user(db: db_session, credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)]) -> User`
   - What: the reusable "gate". It's a normal function, but because endpoints list it via `Depends`, FastAPI runs it before them — that's the "middleware" behaviour
   - It's a **dependency**, not a helper, so it uses `db: db_session` (FastAPI injects it). Helpers use `db: Session`
-- [ ] Inside `get_current_user`, in order:
+- [✅] Inside `get_current_user`, in order:
   - [✅] No credentials → `raise HTTPException(401, "Not authenticated", headers={"WWW-Authenticate": "Bearer"})`
-  - [ ] `decode_jwt_token(credentials.credentials)`:
+  - [✅] `decode_jwt_token(credentials.credentials)`:
     - `ExpiredJWTTokenError` → 401 with detail `"Access token expired"` → frontend's signal to call `/refresh`
     - `InvalidJWTTokenError` → 401 with detail `"Invalid access token"` → frontend's signal to log out
-  - [ ] `user = db.get(User, payload["user_id"])`; `None` → 401 (user deleted after the token was issued)
-  - [ ] Return `user`
+  - [✅] `user = db.get(User, payload["user_id"])`; `None` → 401 (user deleted after the token was issued)
+  - [✅] Return `user`
   - Why `raise` is fine here (unlike `/refresh`): there's no cookie to clear, so nothing is lost when FastAPI discards the response
   - Why `WWW-Authenticate: Bearer`: the HTTP standard says a 401 should tell the client which auth scheme to use
-- [ ] `CurrentUser = Annotated[User, Depends(get_current_user)]` — same idea as your `db_session` alias, so endpoints just write `current_user: CurrentUser`
+- [✅] `CurrentUser = Annotated[User, Depends(get_current_user)]` — same idea as your `db_session` alias, so endpoints just write `current_user: CurrentUser`
 
 *3c. `GET /me` — first protected endpoint*
 - [ ] Schema `UserPublic` in `schemas.py`: `id`, `username`, `email`, `created_at` (`from_attributes = True`) — the safe, public view of a user (never `hashed_password`). Reuse it in `/refresh` and later `/login`
