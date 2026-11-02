@@ -2,13 +2,13 @@ from typing_extensions import Annotated
 
 from fastapi import FastAPI, HTTPException, status, Response, Cookie
 from app.database import db_session
-from app.schemas import SignUpUserRequest, SignUpUserResponse, LoginUserRequest, LoginUserResponse
+from app.schemas import SignUpUserRequest, SignUpUserResponse, LoginUserRequest, LoginUserResponse, UserPublic
 from app.models import User
 from app.utils.passwordHelpers import check_password, hash_password
 from app.utils.jwtTokenHelpers import create_jwt_token
 from app.utils.refreshTokenHelpers import create_refresh_token, decode_refresh_token, set_refresh_cookie, get_refresh_token_from_db, clear_refresh_cookie
+from app.dependencies import CurrentUser
 from fastapi.middleware.cors import CORSMiddleware
-
 from app.exceptions import InvalidRefreshTokenError
 
 app = FastAPI()
@@ -114,3 +114,7 @@ def logout(db: db_session, response: Response, refresh_token: Annotated[str | No
             # (add logger.exception(...) here once you have logging set up)
 
     clear_refresh_cookie(response)  # always reached, so the cookie is always cleared
+
+@app.get("/me", response_model= UserPublic, status_code=status.HTTP_200_OK)
+def me(current_user: CurrentUser):
+    return current_user
