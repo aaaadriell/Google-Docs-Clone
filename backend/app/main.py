@@ -2,7 +2,7 @@ from typing_extensions import Annotated
 
 from fastapi import FastAPI, HTTPException, status, Response, Cookie
 from app.database import db_session
-from app.schemas import SignUpUserRequest, SignUpUserResponse, LoginUserRequest, LoginUserResponse, UserPublic
+from app.schemas import SignUpUserRequest, SignUpUserResponse, LoginUserRequest, LoginUserResponse, UserPublicResponse
 from app.models import User
 from app.utils.passwordHelpers import check_password, hash_password
 from app.utils.jwtTokenHelpers import create_jwt_token
@@ -115,6 +115,8 @@ def logout(db: db_session, response: Response, refresh_token: Annotated[str | No
 
     clear_refresh_cookie(response)  # always reached, so the cookie is always cleared
 
-@app.get("/me", response_model= UserPublic, status_code=status.HTTP_200_OK)
+@app.get("/me", response_model= UserPublicResponse, status_code=status.HTTP_200_OK)
 def me(current_user: CurrentUser):
     return current_user
+
+@app.post("/refresh", response_model=)

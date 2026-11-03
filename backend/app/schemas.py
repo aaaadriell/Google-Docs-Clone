@@ -46,13 +46,23 @@ class LoginUserResponse(BaseModel):
         from_attributes = True
 
 #######################################################################################################################
-# User Public Schema
+# User Public Response Schema
 #######################################################################################################################
-class UserPublic(BaseModel):
+class UserPublicResponse(BaseModel):
     id: int
     username: str
     email: EmailStr
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+#######################################################################################################################
+# Refresh Response Schema
+#######################################################################################################################
+class RefreshResponse(BaseModel):
+    jwtToken: str
+    user: UserPublicResponse
 
     class Config:
         from_attributes = True

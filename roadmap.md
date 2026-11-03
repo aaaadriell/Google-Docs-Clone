@@ -103,13 +103,6 @@
   - Why it's one line: the dependency already did all the work — this is the pattern every protected endpoint will follow
   - Why it exists: the home page needs "who am I?", and it's the simplest end-to-end test of the whole chain
 
-*3d. Testing*
-- [ ] Postman: log in → copy `jwtToken` → **Authorization** tab → *Bearer Token* → `GET /me` → **200** with your user
-- [ ] No header → **401** "Not authenticated"
-- [ ] Change one character of the token → **401** "Invalid access token"
-- [ ] Send the **refresh** token as the Bearer token → **401** "Invalid access token"
-- [ ] Temporarily set `ACCESS_TOKEN_EXPIRE_MINUTES = 1` → wait → **401** "Access token expired" (then set it back to 15)
-- [ ] `/docs` → **Authorize** → paste token → try `/me` there too
 
 **Backend — Step 4: `POST /refresh` (v1 — no rotation)**
 > Purpose: the frontend calls this on **every page load / reload** (the in-memory access token is always gone) and whenever an API call returns **401 "Access token expired"**. It authenticates with the **refresh cookie**, not the Bearer header. Valid → issue a **new access token only**; the refresh token and cookie stay unchanged. Invalid for any reason → 401 + clear cookie, and the frontend sends the user to `/login`. An invalid refresh token is **never** exchanged for anything.
