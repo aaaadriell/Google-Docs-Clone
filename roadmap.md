@@ -124,22 +124,22 @@
 *4c. Checks — in this order, stop at the first failure*
 - [✅] **No cookie** (`refresh_token is None`) → return a plain 401 (nothing to clear)
   - Happens when: never logged in, already logged out, or the browser dropped the expired cookie
-- [ ] **Decode fails** (`decode_refresh_token` raises `InvalidRefreshTokenError`) → `return unauthorized_and_clear_cookie()`
+- [✅] **Decode fails** (`decode_refresh_token` raises `InvalidRefreshTokenError`) → `return unauthorized_and_clear_cookie()`
   - Happens when: **expired** (PyJWT checks `exp` — this is the "refresh token expiry has passed" case), tampered, garbage, or an access token was sent
   - No need to set `isActive=False` — an expired token is already unusable; cleanup (Step 5) deletes its row later
-- [ ] **Row not found** (`get_refresh_token_from_db(db, payload["jti"])` returns `None`) → `return unauthorized_and_clear_cookie()`
+- [✅] **Row not found** (`get_refresh_token_from_db(db, payload["jti"])` returns `None`) → `return unauthorized_and_clear_cookie()`
   - Happens when: the token is genuine but its row was deleted (cleanup / manual)
-- [ ] **Row inactive** (`record.isActive is False`) → `return unauthorized_and_clear_cookie()`
+- [✅] **Row inactive** (`record.isActive is False`) → `return unauthorized_and_clear_cookie()`
   - Happens when: this session was logged out (possibly via another copy of the cookie), or revoked
   - **This check is what makes logout real** — without it, a copied cookie keeps minting access tokens until it expires
-- [ ] **User missing** (`db.get(User, payload["user_id"])` is `None`) → `return unauthorized_and_clear_cookie()`
+- [✅] **User missing** (`db.get(User, payload["user_id"])` is `None`) → `return unauthorized_and_clear_cookie()`
   - Defensive: user deleted mid-session — don't crash with a 500
 
 *4d. Success path*
-- [ ] `create_jwt_token(user.id)` → new access token — **this** is the part that's "just `create_jwt_token`"; everything above is what makes it safe to call
-- [ ] Return `RefreshResponse(jwtToken=..., user=user)`
-- [ ] No DB writes, no commit, no cookie changes
-- [ ] Wrap the DB lookups in `try/except Exception` → log + 500 (unexpected errors only; the auth failures above are returns, not exceptions)
+- [✅] `create_jwt_token(user.id)` → new access token — **this** is the part that's "just `create_jwt_token`"; everything above is what makes it safe to call
+- [✅] Return `RefreshResponse(jwtToken=..., user=user)`
+- [✅] No DB writes, no commit, no cookie changes
+- [✅] Wrap the DB lookups in `try/except Exception` → log + 500 (unexpected errors only; the auth failures above are returns, not exceptions)
 
 *4e. Testing (Postman + Neon)*
 - [ ] Log in → `/refresh` → **200**, body has `jwtToken` + `user`, cookie value **unchanged**

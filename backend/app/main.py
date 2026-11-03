@@ -12,6 +12,8 @@ from app.dependencies import CurrentUser
 from fastapi.middleware.cors import CORSMiddleware
 from app.exceptions import InvalidRefreshTokenError
 
+from datetime import datetime, timezone
+
 app = FastAPI()
 
 app.add_middleware(
@@ -130,8 +132,37 @@ def refresh(db: db_session, refresh_token: Annotated[str | None, Cookie()] = Non
 
     try:
         payload = decode_refresh_token(refresh_token)
+        record = get_refresh_token_from_db(db, payload["jti"])
+
+        # No Refresh Token Record Check
+        if record is None:
+            return unauthorized_and_clear_cookie()
+
+        # Refresh Token Inactive Check
+        if not record.isActive:
+                    return unauthorized_and_clear_cookie()
+
+        # User Existence Check
+        user = db.get(User, payload["user_id"])
+        if user is None:
+            return unauthorized_and_clear_cookie()
+        
+        # Success Path
+        new_jwt_token = create_jwt_token(user.id)
+
+        user_public_response = UserPublicResponse(id=user.id,
+                                                username=user.username,
+                                                email=user.email,
+                                                created_at=user.created_at)
+        
+        refresh_response = RefreshResponse(jwtToken=new_jwt_token,
+                                           user=user_public_response)
+        
+        return refresh_response
     
     except InvalidRefreshTokenError:
         return unauthorized_and_clear_cookie()
+    except Exception:
+        raise HTTPException(status_code=500, detail="Refresh failed.")
 
 

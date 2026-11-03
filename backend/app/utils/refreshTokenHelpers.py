@@ -50,6 +50,7 @@ def create_refresh_token(db: Session, user_id: int) -> str:
 def decode_refresh_token(token: str) -> dict:
     # Only jwt.decode can raise PyJWT errors, so it's the only thing inside the try
     try:
+        # PyJWT automatically checks expiry here
         payload = jwt.decode(token,
                             SECRET_KEY,
                             algorithms=[ALGORITHM],
