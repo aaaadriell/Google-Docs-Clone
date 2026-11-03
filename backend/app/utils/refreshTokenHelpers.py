@@ -84,6 +84,7 @@ def get_refresh_token_from_db(db: Session, jti: str) -> RefreshToken | None:
     return db.query(RefreshToken).filter(RefreshToken.jti == jti).first()
 
 
-def unauthorized_and_clear_cookie(response: Response) -> JSONResponse:
-    clear_refresh_cookie(response)
-    return JSONResponse(status_code=401, content = {"detail": "Invalid or expired session."})
+def unauthorized_and_clear_cookie() -> JSONResponse:
+    errorResponse = JSONResponse(status_code=401, content = {"detail": "Invalid or expired session."})
+    clear_refresh_cookie(errorResponse)
+    return errorResponse

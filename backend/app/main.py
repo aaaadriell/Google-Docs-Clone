@@ -1,12 +1,13 @@
 from typing_extensions import Annotated
 
 from fastapi import FastAPI, HTTPException, status, Response, Cookie
+from fastapi.responses import JSONResponse
 from app.database import db_session
 from app.schemas import SignUpUserRequest, SignUpUserResponse, LoginUserRequest, LoginUserResponse, UserPublicResponse, RefreshResponse
 from app.models import User
 from app.utils.passwordHelpers import check_password, hash_password
 from app.utils.jwtTokenHelpers import create_jwt_token
-from app.utils.refreshTokenHelpers import create_refresh_token, decode_refresh_token, set_refresh_cookie, get_refresh_token_from_db, clear_refresh_cookie
+from app.utils.refreshTokenHelpers import create_refresh_token, decode_refresh_token, set_refresh_cookie, get_refresh_token_from_db, clear_refresh_cookie, unauthorized_and_clear_cookie
 from app.dependencies import CurrentUser
 from fastapi.middleware.cors import CORSMiddleware
 from app.exceptions import InvalidRefreshTokenError
@@ -119,7 +120,18 @@ def logout(db: db_session, response: Response, refresh_token: Annotated[str | No
 def me(current_user: CurrentUser):
     return current_user
 
-
+# If refresh token in cookie is valid, issue new JWT access token
+# If refresh token is invalid, clear cookie
 @app.post("/refresh", response_model=RefreshResponse, status_code=status.HTTP_200_OK)
-def refresh():
+def refresh(db: db_session, refresh_token: Annotated[str | None, Cookie()] = None):
+    # No Cookie Check
+    if refresh_token is None:
+        return JSONResponse(status_code=401, content = {"detail": "Cookie not found."})
+
+    try:
+        payload = decode_refresh_token(refresh_token)
     
+    except InvalidRefreshTokenError:
+        return unauthorized_and_clear_cookie()
+
+

@@ -116,13 +116,13 @@
   - Why one vague message: don't reveal to a caller *which* check failed
 
 *4b. Endpoint signature*
-- [ ] `@app.post("/refresh", response_model=RefreshResponse)`
-- [ ] Params: `db: db_session`, `refresh_token: Annotated[str | None, Cookie()] = None`
+- [✅] `@app.post("/refresh", response_model=RefreshResponse)`
+- [✅] Params: `db: db_session`, `refresh_token: Annotated[str | None, Cookie()] = None`
   - **No** `CurrentUser` — the access token is missing/expired when this is called; the cookie is the credential
   - No `response: Response` needed — the success path doesn't touch the cookie in v1
 
 *4c. Checks — in this order, stop at the first failure*
-- [ ] **No cookie** (`refresh_token is None`) → return a plain 401 (nothing to clear)
+- [✅] **No cookie** (`refresh_token is None`) → return a plain 401 (nothing to clear)
   - Happens when: never logged in, already logged out, or the browser dropped the expired cookie
 - [ ] **Decode fails** (`decode_refresh_token` raises `InvalidRefreshTokenError`) → `return unauthorized_and_clear_cookie()`
   - Happens when: **expired** (PyJWT checks `exp` — this is the "refresh token expiry has passed" case), tampered, garbage, or an access token was sent
