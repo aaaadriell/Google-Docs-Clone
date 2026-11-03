@@ -108,9 +108,9 @@
 > Purpose: the frontend calls this on **every page load / reload** (the in-memory access token is always gone) and whenever an API call returns **401 "Access token expired"**. It authenticates with the **refresh cookie**, not the Bearer header. Valid → issue a **new access token only**; the refresh token and cookie stay unchanged. Invalid for any reason → 401 + clear cookie, and the frontend sends the user to `/login`. An invalid refresh token is **never** exchanged for anything.
 
 *4a. Prerequisites*
-- [ ] Schema `RefreshResponse`: `jwtToken: str` + `user: UserPublic`
+- [✅] Schema `RefreshResponse`: `jwtToken: str` + `user: UserPublic`
   - Why both: after a reload the frontend has lost the token **and** who the user is; returning the user here saves an extra `/me` call
-- [ ] Helper `unauthorized_and_clear_cookie() -> JSONResponse` in `refreshTokenHelpers.py`: builds a 401 `JSONResponse` with one fixed, vague detail (`"Invalid or expired session."`), calls `clear_refresh_cookie` on it, returns it
+- [✅] Helper `unauthorized_and_clear_cookie() -> JSONResponse` in `refreshTokenHelpers.py`: builds a 401 `JSONResponse` with one fixed, vague detail (`"Invalid or expired session."`), calls `clear_refresh_cookie` on it, returns it
   - Why **return** instead of `raise HTTPException`: raising **discards** the injected response, so the cookie deletion would be lost (the bug you saw in `/logout`)
   - Why clear the cookie: so the browser stops sending a token that can never work
   - Why one vague message: don't reveal to a caller *which* check failed

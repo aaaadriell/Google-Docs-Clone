@@ -13,7 +13,8 @@
 import jwt
 import uuid
 import os
-from fastapi import Response
+from fastapi import Response 
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from app.models import RefreshToken
 from datetime import datetime, timedelta, timezone
@@ -81,3 +82,8 @@ def clear_refresh_cookie(response: Response) -> None:
     
 def get_refresh_token_from_db(db: Session, jti: str) -> RefreshToken | None:
     return db.query(RefreshToken).filter(RefreshToken.jti == jti).first()
+
+
+def unauthorized_and_clear_cookie(response: Response) -> JSONResponse:
+    clear_refresh_cookie(response)
+    return JSONResponse(status_code=401, content = {"detail": "Invalid or expired session."})

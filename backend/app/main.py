@@ -2,7 +2,7 @@ from typing_extensions import Annotated
 
 from fastapi import FastAPI, HTTPException, status, Response, Cookie
 from app.database import db_session
-from app.schemas import SignUpUserRequest, SignUpUserResponse, LoginUserRequest, LoginUserResponse, UserPublicResponse
+from app.schemas import SignUpUserRequest, SignUpUserResponse, LoginUserRequest, LoginUserResponse, UserPublicResponse, RefreshResponse
 from app.models import User
 from app.utils.passwordHelpers import check_password, hash_password
 from app.utils.jwtTokenHelpers import create_jwt_token
@@ -119,4 +119,7 @@ def logout(db: db_session, response: Response, refresh_token: Annotated[str | No
 def me(current_user: CurrentUser):
     return current_user
 
-@app.post("/refresh", response_model=)
+
+@app.post("/refresh", response_model=RefreshResponse, status_code=status.HTTP_200_OK)
+def refresh():
+    
