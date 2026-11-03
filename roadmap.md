@@ -141,18 +141,6 @@
 - [✅] No DB writes, no commit, no cookie changes
 - [✅] Wrap the DB lookups in `try/except Exception` → log + 500 (unexpected errors only; the auth failures above are returns, not exceptions)
 
-*4e. Testing (Postman + Neon)*
-- [ ] Log in → `/refresh` → **200**, body has `jwtToken` + `user`, cookie value **unchanged**
-- [ ] Use that new `jwtToken` on `GET /me` → **200** (proves Step 3 + Step 4 work together)
-- [ ] Call `/refresh` several times → each returns a different `jwtToken`; cookie unchanged; no new rows in Neon
-- [ ] No cookie → **401**
-- [ ] Cookie = `garbage` → **401**, cookie cleared
-- [ ] Log out → `/refresh` → **401**
-- [ ] **Copied cookie:** log in, copy the cookie value, log out, set the copied value back, `/refresh` → **401** (proves the `isActive` check)
-- [ ] Set the row's `isActive=false` by hand in Neon → `/refresh` → **401**
-- [ ] Access token sent as the refresh cookie → **401**
-- [ ] **Full expiry loop:** `ACCESS_TOKEN_EXPIRE_MINUTES = 1` → log in → wait → `/me` → 401 "expired" → `/refresh` → new token → `/me` → **200**
-
 **Later — Step 4 v2: Rotation + reuse detection (not needed for MVP)**
 > Upgrade path once everything else works. Same endpoint, same response shape — only the success branch and the inactive-row branch change; the frontend needs no changes.
 - [ ] Add `revoked_at` column (timestamp of deactivation)
