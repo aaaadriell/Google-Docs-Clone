@@ -151,6 +151,7 @@ def refresh(db: db_session, refresh_token: Annotated[str | None, Cookie()] = Non
         
         ##### Success Path #####
         # Deactivate old refresh token + deleting old cookie
+        
 
         # Creation of new Refresh Token + Store in new Cookie
 

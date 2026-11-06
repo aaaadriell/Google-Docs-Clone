@@ -25,6 +25,7 @@ from app.exceptions import InvalidRefreshTokenError
 SECRET_KEY = os.environ.get("REFRESH_SECRET_KEY")
 ALGORITHM = "HS256"
 REFRESH_TOKEN_EXPIRE_DAYS = 7
+REFRESH_REUSE_GRACE_SECONDS = 20
 
 # Fail fast at startup instead of on the first login / refresh
 if not SECRET_KEY:
@@ -63,6 +64,17 @@ def decode_refresh_token(token: str) -> dict:
         raise InvalidRefreshTokenError("Not a refresh token.")
     
     return payload
+
+def revoke_refresh_token_record(record : RefreshToken | None) -> None:
+    record.isActive = False
+    record.revoked_at = datetime.now(timezone.utc)
+
+def revoke_all_user_refresh_tokens(db: Session, user_id: int) -> None:
+    db.query(RefreshToken).filter(RefreshToken.user_id == user_id, RefreshToken.isActive.is_(True)).update({"isActive": False, "revoked_at": datetime.now(timezone.utc)}, synchronize_session=False)
+
+def was_recently_revoked(record: RefreshToken | None, grace_seconds = REFRESH_REUSE_GRACE_SECONDS) -> bool:
+    now = datetime.now(timezone.utc)
+    return record.revoked_at is not None and ((now - record.revoked_at) <= grace_seconds )
 
 def set_refresh_cookie(response: Response, refresh_token: str) -> None:
     response.set_cookie(key="refresh_token",
