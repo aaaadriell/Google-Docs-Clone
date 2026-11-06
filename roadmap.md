@@ -143,7 +143,7 @@
 
 **Later — Step 4 v2: Rotation + reuse detection (not needed for MVP)**
 > Upgrade path once everything else works. Same endpoint, same response shape — only the success branch and the inactive-row branch change; the frontend needs no changes.
-- [ ] Add `revoked_at` column (timestamp of deactivation)
+- [✅] Add `revoked_at` column (timestamp of deactivation)
 - [ ] Success path: deactivate old row (`isActive=False`, `revoked_at=now`) + `create_refresh_token` + set new cookie, **one** commit → sliding sessions (active users stay logged in)
 - [ ] Inactive row with `revoked_at` older than ~10–30 s → **reuse detected**: deactivate all of that user's rows
 - [ ] Inactive row with `revoked_at` within ~10–30 s → multi-tab race, not theft: plain 401, don't clear cookie, don't mass-revoke

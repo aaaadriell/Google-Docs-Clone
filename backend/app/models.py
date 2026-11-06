@@ -18,6 +18,7 @@ class RefreshToken(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     expired_at = Column(DateTime(timezone=True), nullable=False)
     isActive : bool = Column(Boolean, default=True, nullable=False)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
 
 # class Documents(Base):
 #     __tablename__ = "documents"

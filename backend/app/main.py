@@ -109,7 +109,9 @@ def logout(db: db_session, response: Response, refresh_token: Annotated[str | No
             record = get_refresh_token_from_db(db, payload["jti"])
             if record is not None and record.isActive:
                 record.isActive = False
+                record.revoked_at = datetime.now(timezone.utc)
                 db.commit()
+
         except InvalidRefreshTokenError:
             pass                    # invalid or expired: nothing to revoke
         except Exception:
@@ -122,7 +124,7 @@ def logout(db: db_session, response: Response, refresh_token: Annotated[str | No
 def me(current_user: CurrentUser):
     return current_user
 
-# If refresh token in cookie is valid, issue new JWT access token
+# If refresh token in cookie is valid, issue new JWT access token + New Refresh Token and store in new cookie
 # If refresh token is invalid, clear cookie
 @app.post("/refresh", response_model=RefreshResponse, status_code=status.HTTP_200_OK)
 def refresh(db: db_session, refresh_token: Annotated[str | None, Cookie()] = None):
@@ -147,7 +149,12 @@ def refresh(db: db_session, refresh_token: Annotated[str | None, Cookie()] = Non
         if user is None:
             return unauthorized_and_clear_cookie()
         
-        # Success Path
+        ##### Success Path #####
+        # Deactivate old refresh token + deleting old cookie
+
+        # Creation of new Refresh Token + Store in new Cookie
+
+        # Creation of new JWT Token
         new_jwt_token = create_jwt_token(user.id)
 
         user_public_response = UserPublicResponse(id=user.id,
