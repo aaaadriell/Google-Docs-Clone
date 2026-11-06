@@ -93,8 +93,11 @@ def clear_refresh_cookie(response: Response) -> None:
                             samesite="strict"
                             )
     
-def get_refresh_token_from_db(db: Session, jti: str) -> RefreshToken | None:
-    return db.query(RefreshToken).filter(RefreshToken.jti == jti).first()
+def get_refresh_token_from_db(db: Session, jti: str, lock: bool = False) -> RefreshToken | None:
+    query = db.query(RefreshToken).filter(RefreshToken.jti == jti)
+    if lock:
+        query = query.with_for_update()
+    return query.first()
 
 
 def unauthorized_and_clear_cookie() -> JSONResponse:

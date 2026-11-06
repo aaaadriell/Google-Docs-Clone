@@ -7,7 +7,7 @@ from app.schemas import SignUpUserRequest, SignUpUserResponse, LoginUserRequest,
 from app.models import User
 from app.utils.passwordHelpers import check_password, hash_password
 from app.utils.jwtTokenHelpers import create_jwt_token
-from app.utils.refreshTokenHelpers import create_refresh_token, decode_refresh_token, set_refresh_cookie, get_refresh_token_from_db, clear_refresh_cookie, unauthorized_and_clear_cookie
+from app.utils.refreshTokenHelpers import create_refresh_token, decode_refresh_token, set_refresh_cookie, get_refresh_token_from_db, clear_refresh_cookie, unauthorized_and_clear_cookie, revoke_refresh_token_record, revoke_all_user_refresh_tokens, was_recently_revoked
 from app.dependencies import CurrentUser
 from fastapi.middleware.cors import CORSMiddleware
 from app.exceptions import InvalidRefreshTokenError
@@ -127,14 +127,14 @@ def me(current_user: CurrentUser):
 # If refresh token in cookie is valid, issue new JWT access token + New Refresh Token and store in new cookie
 # If refresh token is invalid, clear cookie
 @app.post("/refresh", response_model=RefreshResponse, status_code=status.HTTP_200_OK)
-def refresh(db: db_session, refresh_token: Annotated[str | None, Cookie()] = None):
+def refresh(db: db_session, response:Response, refresh_token: Annotated[str | None, Cookie()] = None):
     # No Cookie Check
     if refresh_token is None:
         return JSONResponse(status_code=401, content = {"detail": "Cookie not found."})
 
     try:
         payload = decode_refresh_token(refresh_token)
-        record = get_refresh_token_from_db(db, payload["jti"])
+        record = get_refresh_token_from_db(db, payload["jti"], lock=True)
 
         # No Refresh Token Record Check
         if record is None:
@@ -142,8 +142,13 @@ def refresh(db: db_session, refresh_token: Annotated[str | None, Cookie()] = Non
 
         # Refresh Token Inactive Check
         if not record.isActive:
-                    return unauthorized_and_clear_cookie()
+            if was_recently_revoked(record):
+                return JSONResponse(status_code=401, content = {"detail": "Invalid or expired session."})
 
+            revoke_all_user_refresh_tokens(db, record.user_id)
+            db.commit()
+            return unauthorized_and_clear_cookie()
+        
         # User Existence Check
         user = db.get(User, payload["user_id"])
         if user is None:
@@ -151,12 +156,17 @@ def refresh(db: db_session, refresh_token: Annotated[str | None, Cookie()] = Non
         
         ##### Success Path #####
         # Deactivate old refresh token + deleting old cookie
-        
+        revoke_refresh_token_record(record)
 
         # Creation of new Refresh Token + Store in new Cookie
-
+        new_refresh_token = create_refresh_token(db, user.id)
+        
         # Creation of new JWT Token
         new_jwt_token = create_jwt_token(user.id)
+
+        db.commit()
+
+        set_refresh_cookie(response, new_refresh_token)
 
         user_public_response = UserPublicResponse(id=user.id,
                                                 username=user.username,
