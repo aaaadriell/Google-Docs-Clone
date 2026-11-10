@@ -31,6 +31,9 @@ REFRESH_REUSE_GRACE_SECONDS = 20
 if not SECRET_KEY:
     raise RuntimeError("REFRESH_SECRET_KEY environment variable is not set.")
 
+###############################################################################
+############# Refresh Token Related############################################
+###############################################################################
 def create_refresh_token(db: Session, user_id: int) -> str:
     now = datetime.now(timezone.utc)
     expire = now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
@@ -76,6 +79,23 @@ def was_recently_revoked(record: RefreshToken | None, grace_seconds = REFRESH_RE
     now = datetime.now(timezone.utc)
     return record.revoked_at is not None and ((now - record.revoked_at) <= grace_seconds )
 
+def get_refresh_token_from_db(db: Session, jti: str, lock: bool = False) -> RefreshToken | None:
+    query = db.query(RefreshToken).filter(RefreshToken.jti == jti)
+    if lock:
+        query = query.with_for_update()
+    return query.first()
+
+def delete_stale_refresh_tokens(db: Session, user_id: int | None = None)-> int:
+    now = datetime.now(timezone.utc)
+    query = db.query(RefreshToken).filter(RefreshToken.expired_at < now)
+    if user_id is not None:
+        query = query.filter(RefreshToken.user_id == user_id)
+
+    return query.delete(synchronize_session=False)
+
+###############################################################################
+############# Cookie Related############################################
+###############################################################################
 def set_refresh_cookie(response: Response, refresh_token: str) -> None:
     response.set_cookie(key="refresh_token",
                         value=refresh_token,
@@ -92,12 +112,6 @@ def clear_refresh_cookie(response: Response) -> None:
                             secure=True,
                             samesite="strict"
                             )
-    
-def get_refresh_token_from_db(db: Session, jti: str, lock: bool = False) -> RefreshToken | None:
-    query = db.query(RefreshToken).filter(RefreshToken.jti == jti)
-    if lock:
-        query = query.with_for_update()
-    return query.first()
 
 
 def unauthorized_and_clear_cookie() -> JSONResponse:

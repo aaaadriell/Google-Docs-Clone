@@ -150,7 +150,7 @@
 - [✅] Tradeoff being bought: stolen refresh tokens get detected, and daily users are no longer logged out every `REFRESH_TOKEN_EXPIRE_DAYS`
 
 **Backend — Step 5: Cleanup**
-- [ ] `delete_stale_refresh_tokens(db)` — delete rows where `expired_at < now` OR (`isActive=False` AND older than N days)
+- [ ] `delete_stale_refresh_tokens()` — delete rows where `expired_at < now`
 - [ ] Call it at login (move to a scheduled job later)
 
 **Frontend**
