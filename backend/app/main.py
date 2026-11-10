@@ -7,12 +7,13 @@ from app.schemas import SignUpUserRequest, SignUpUserResponse, LoginUserRequest,
 from app.models import User
 from app.utils.passwordHelpers import check_password, hash_password
 from app.utils.jwtTokenHelpers import create_jwt_token
-from app.utils.refreshTokenHelpers import create_refresh_token, decode_refresh_token, set_refresh_cookie, get_refresh_token_from_db, clear_refresh_cookie, unauthorized_and_clear_cookie, revoke_refresh_token_record, revoke_all_user_refresh_tokens, was_recently_revoked
+from app.utils.refreshTokenHelpers import create_refresh_token, decode_refresh_token, set_refresh_cookie, get_refresh_token_from_db, clear_refresh_cookie, unauthorized_and_clear_cookie, revoke_refresh_token_record, revoke_all_user_refresh_tokens, was_recently_revoked, delete_stale_refresh_tokens
 from app.dependencies import CurrentUser
 from fastapi.middleware.cors import CORSMiddleware
 from app.exceptions import InvalidRefreshTokenError
 
 from datetime import datetime, timezone
+import logging
 
 app = FastAPI()
 
@@ -23,6 +24,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+logger = logging.getLogger("uvicorn.error")
+
 
 @app.get("/health-check")
 def connectivity_check(db: db_session):
@@ -78,6 +82,11 @@ def login(db: db_session, user_data: LoginUserRequest, response: Response):
         # Password Verification
         if not check_password(user_data.password, existing_user.hashed_password):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials.")
+
+        # Delete expired Refresh Token Instances for existing_user in DB
+        num_Refresh_Tokens_Deleted = delete_stale_refresh_tokens(db, existing_user.id)
+        logger.info("Deleted %d stale refresh tokens for user_id=%s", num_Refresh_Tokens_Deleted, existing_user.id)
+        
         # Refresh Token Generation
         refresh_token = create_refresh_token(db, existing_user.id)
 
@@ -90,7 +99,7 @@ def login(db: db_session, user_data: LoginUserRequest, response: Response):
                                             jwtToken=jwt_token)
         # Set Response Cookie
         set_refresh_cookie(response, refresh_token)
-        
+
         db.commit()  # Commit the transaction to save the refresh token in the database
 
         return loginUserResponse
@@ -182,5 +191,3 @@ def refresh(db: db_session, response:Response, refresh_token: Annotated[str | No
         return unauthorized_and_clear_cookie()
     except Exception:
         raise HTTPException(status_code=500, detail="Refresh failed.")
-
-
